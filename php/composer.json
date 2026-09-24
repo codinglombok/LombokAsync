@@ -1,0 +1,14 @@
+{
+    "name": "codinglombok/lombokasync",
+    "description": "Lightweight async utilities — task spawning, timers, channels, combinators",
+    "type": "library",
+    "license": "Apache-2.0",
+    "require": {
+        "php": ">=8.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "LombokAsync\\": "src/"
+        }
+    }
+}

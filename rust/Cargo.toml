@@ -1,0 +1,11 @@
+[package]
+name = "lombokasync"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Lightweight async runtime — task spawning, timers, channels, combinators"
+repository = "https://github.com/codinglombok/LombokAsync"
+
+[features]
+default = ["std"]
+std = []
