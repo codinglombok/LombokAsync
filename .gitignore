@@ -30,3 +30,7 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+/map
+/docs/*architecture*.*
+/docs/*masterplan*.*
