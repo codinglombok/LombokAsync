@@ -1,11 +1,17 @@
 [package]
 name = "lombokasync"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
+rust-version = "1.70"
 license = "Apache-2.0"
-description = "Lightweight async runtime — task spawning, timers, channels, combinators"
+description = "Small single-threaded async runtime: block_on, spawn, timers, mpsc and oneshot channels, join/select/timeout. No dependencies, no unsafe code."
 repository = "https://github.com/codinglombok/LombokAsync"
+readme = "README.md"
+keywords = ["async", "executor", "channel", "timer", "runtime"]
+categories = ["asynchronous", "concurrency"]
+exclude = ["target/"]
 
-[features]
-default = ["std"]
-std = []
+[dependencies]
+
+[dev-dependencies]
+serde_json = "1"

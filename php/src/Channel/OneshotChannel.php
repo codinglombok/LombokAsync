@@ -4,75 +4,35 @@ declare(strict_types=1);
 
 namespace LombokAsync\Channel;
 
-use LombokAsync\Executor\EventLoop;
+use LombokAsync\Executor\Task;
 
 /**
- * Oneshot channel — send exactly one value.
+ * Oneshot channel (SPEC section 4): at most one value. This object is the
+ * shared state; create a pair with {@see create()}.
  */
-class OneshotChannel
+final class OneshotChannel
 {
-    private mixed $value = null;
-    private bool $sent = false;
+    /** @internal */
+    public mixed $value = null;
+    /** @internal */
+    public bool $hasValue = false;
+    /** @internal */
+    public bool $txUsed = false;
+    /** @internal */
+    public bool $txDropped = false;
+    /** @internal */
+    public bool $rxClosed = false;
+    /** @internal */
+    public bool $taken = false;
+    /** @var list<Task> @internal */
+    public array $waiters = [];
 
     /**
-     * Create a oneshot channel and return [sender, receiver].
-     *
      * @return array{0: OneshotSender, 1: OneshotReceiver}
      */
     public static function create(): array
     {
-        $channel = new self();
-        return [new OneshotSender($channel), new OneshotReceiver($channel)];
-    }
-
-    /** @internal */
-    public function send(mixed $value): void
-    {
-        if ($this->sent) {
-            throw new \RuntimeException('oneshot already sent');
-        }
-        $this->value = $value;
-        $this->sent = true;
-    }
-
-    /** @internal */
-    public function recv(): mixed
-    {
-        return $this->value;
-    }
-
-    public function isSent(): bool
-    {
-        return $this->sent;
-    }
-}
-
-class OneshotSender
-{
-    public function __construct(private OneshotChannel $channel) {}
-
-    public function send(mixed $value): void
-    {
-        $this->channel->send($value);
-    }
-}
-
-class OneshotReceiver
-{
-    public function __construct(private OneshotChannel $channel) {}
-
-    /** Returns the value (non-blocking). */
-    public function recv(): mixed
-    {
-        return $this->channel->recv();
-    }
-
-    /** Wait cooperatively until a value is sent. */
-    public function recvBlocking(): mixed
-    {
-        while (!$this->channel->isSent()) {
-            EventLoop::yield();
-        }
-        return $this->channel->recv();
+        $c = new self();
+        return [new OneshotSender($c), new OneshotReceiver($c)];
     }
 }

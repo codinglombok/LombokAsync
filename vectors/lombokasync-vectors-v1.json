@@ -1,0 +1,7249 @@
+{
+ "name": "lombokasync-vectors",
+ "version": 1,
+ "spec": "docs/SPEC_LombokAsync (sections 3-6)",
+ "kinds": {
+  "mpsc": "apply ops in order to one channel; expected[i] is the outcome of ops[i]",
+  "oneshot": "apply ops in order to one oneshot channel; expected[i] is the outcome of ops[i]",
+  "join_all": "join_all over tasks; expected is {ok: values} or {error: message}",
+  "select": "select over tasks; expected is {index, value} or {error: message}",
+  "timeout": "timeout(deadline_ms, task); expected is {ok: value}, \"timeout\" or {error: message}"
+ },
+ "timeout_deadline_ms": 50,
+ "cases": [
+  {
+   "id": "mpsc-001",
+   "kind": "mpsc",
+   "note": "FIFO order, then empty",
+   "ops": [
+    [
+     "new",
+     null
+    ],
+    [
+     "send",
+     0,
+     1
+    ],
+    [
+     "send",
+     0,
+     2
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "ok",
+    {
+     "value": 1
+    },
+    {
+     "value": 2
+    },
+    "empty"
+   ]
+  },
+  {
+   "id": "mpsc-002",
+   "kind": "mpsc",
+   "note": "empty while a sender is alive",
+   "ops": [
+    [
+     "new",
+     null
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "empty"
+   ]
+  },
+  {
+   "id": "mpsc-003",
+   "kind": "mpsc",
+   "note": "closed when every sender is dropped",
+   "ops": [
+    [
+     "new",
+     null
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-004",
+   "kind": "mpsc",
+   "note": "buffered values drain before closed",
+   "ops": [
+    [
+     "new",
+     null
+    ],
+    [
+     "send",
+     0,
+     "a"
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "ok",
+    {
+     "value": "a"
+    },
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-005",
+   "kind": "mpsc",
+   "note": "capacity 1",
+   "ops": [
+    [
+     "new",
+     1
+    ],
+    [
+     "send",
+     0,
+     1
+    ],
+    [
+     "send",
+     0,
+     2
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     3
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "full",
+    {
+     "value": 1
+    },
+    "ok",
+    {
+     "value": 3
+    }
+   ]
+  },
+  {
+   "id": "mpsc-006",
+   "kind": "mpsc",
+   "note": "full keeps the queue unchanged",
+   "ops": [
+    [
+     "new",
+     2
+    ],
+    [
+     "send",
+     0,
+     1
+    ],
+    [
+     "send",
+     0,
+     2
+    ],
+    [
+     "send",
+     0,
+     3
+    ],
+    [
+     "len"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "ok",
+    "full",
+    {
+     "len": 2
+    }
+   ]
+  },
+  {
+   "id": "mpsc-007",
+   "kind": "mpsc",
+   "note": "capacity 0 is invalid",
+   "ops": [
+    [
+     "new",
+     0
+    ]
+   ],
+   "expected": [
+    "invalid_capacity"
+   ]
+  },
+  {
+   "id": "mpsc-008",
+   "kind": "mpsc",
+   "note": "negative capacity is invalid",
+   "ops": [
+    [
+     "new",
+     -3
+    ]
+   ],
+   "expected": [
+    "invalid_capacity"
+   ]
+  },
+  {
+   "id": "mpsc-009",
+   "kind": "mpsc",
+   "note": "a clone keeps the channel open",
+   "ops": [
+    [
+     "new",
+     null
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "send",
+     1,
+     "x"
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    {
+     "sender": 1
+    },
+    "ok",
+    "ok",
+    {
+     "value": "x"
+    },
+    "empty"
+   ]
+  },
+  {
+   "id": "mpsc-010",
+   "kind": "mpsc",
+   "note": "closed after the last clone is dropped",
+   "ops": [
+    [
+     "new",
+     null
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "drop",
+     1
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    {
+     "sender": 1
+    },
+    "ok",
+    "ok",
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-011",
+   "kind": "mpsc",
+   "note": "one queue for every sender, FIFO by send order",
+   "ops": [
+    [
+     "new",
+     null
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "clone",
+     1
+    ],
+    [
+     "send",
+     2,
+     3
+    ],
+    [
+     "send",
+     0,
+     1
+    ],
+    [
+     "send",
+     1,
+     2
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    {
+     "sender": 1
+    },
+    {
+     "sender": 2
+    },
+    "ok",
+    "ok",
+    "ok",
+    {
+     "value": 3
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 2
+    }
+   ]
+  },
+  {
+   "id": "mpsc-012",
+   "kind": "mpsc",
+   "note": "send after receiver close",
+   "ops": [
+    [
+     "new",
+     null
+    ],
+    [
+     "close"
+    ],
+    [
+     "send",
+     0,
+     1
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "closed",
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-013",
+   "kind": "mpsc",
+   "note": "receiver close keeps buffered values",
+   "ops": [
+    [
+     "new",
+     null
+    ],
+    [
+     "send",
+     0,
+     1
+    ],
+    [
+     "close"
+    ],
+    [
+     "send",
+     0,
+     2
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "ok",
+    "closed",
+    {
+     "value": 1
+    },
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-014",
+   "kind": "mpsc",
+   "note": "closed takes precedence over full",
+   "ops": [
+    [
+     "new",
+     1
+    ],
+    [
+     "send",
+     0,
+     1
+    ],
+    [
+     "close"
+    ],
+    [
+     "send",
+     0,
+     2
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "ok",
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-015",
+   "kind": "mpsc",
+   "note": "close is idempotent",
+   "ops": [
+    [
+     "new",
+     null
+    ],
+    [
+     "close"
+    ],
+    [
+     "close"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "ok",
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-016",
+   "kind": "mpsc",
+   "note": "len follows the queue",
+   "ops": [
+    [
+     "new",
+     null
+    ],
+    [
+     "len"
+    ],
+    [
+     "send",
+     0,
+     1
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ]
+   ],
+   "expected": [
+    "ok",
+    {
+     "len": 0
+    },
+    "ok",
+    {
+     "len": 1
+    },
+    {
+     "value": 1
+    },
+    {
+     "len": 0
+    }
+   ]
+  },
+  {
+   "id": "mpsc-017",
+   "kind": "mpsc",
+   "note": "empty string and zero are values",
+   "ops": [
+    [
+     "new",
+     null
+    ],
+    [
+     "send",
+     0,
+     ""
+    ],
+    [
+     "send",
+     0,
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "ok",
+    {
+     "value": ""
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "id": "mpsc-018",
+   "kind": "mpsc",
+   "note": "non-ASCII string values",
+   "ops": [
+    [
+     "new",
+     null
+    ],
+    [
+     "send",
+     0,
+     "é中😀"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    {
+     "value": "é中😀"
+    }
+   ]
+  },
+  {
+   "id": "mpsc-019",
+   "kind": "mpsc",
+   "note": "safe integer range",
+   "ops": [
+    [
+     "new",
+     null
+    ],
+    [
+     "send",
+     0,
+     -9007199254740991
+    ],
+    [
+     "send",
+     0,
+     9007199254740991
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "ok",
+    {
+     "value": -9007199254740991
+    },
+    {
+     "value": 9007199254740991
+    }
+   ]
+  },
+  {
+   "id": "mpsc-020",
+   "kind": "mpsc",
+   "note": "capacity reused after receives",
+   "ops": [
+    [
+     "new",
+     3
+    ],
+    [
+     "send",
+     0,
+     1
+    ],
+    [
+     "send",
+     0,
+     2
+    ],
+    [
+     "send",
+     0,
+     3
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     4
+    ],
+    [
+     "send",
+     0,
+     5
+    ],
+    [
+     "send",
+     0,
+     6
+    ],
+    [
+     "len"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "ok",
+    "ok",
+    {
+     "value": 1
+    },
+    {
+     "value": 2
+    },
+    "ok",
+    "ok",
+    "full",
+    {
+     "len": 3
+    }
+   ]
+  },
+  {
+   "id": "mpsc-021",
+   "kind": "mpsc",
+   "note": "dropping a clone keeps the original",
+   "ops": [
+    [
+     "new",
+     null
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "drop",
+     1
+    ],
+    [
+     "send",
+     0,
+     1
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    {
+     "sender": 1
+    },
+    "ok",
+    "ok",
+    {
+     "value": 1
+    },
+    "empty"
+   ]
+  },
+  {
+   "id": "mpsc-022",
+   "kind": "mpsc",
+   "note": "bounded closed when senders are gone",
+   "ops": [
+    [
+     "new",
+     1
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "closed",
+    {
+     "len": 0
+    }
+   ]
+  },
+  {
+   "id": "mpsc-023",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     null
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "closed",
+    "closed",
+    "closed",
+    {
+     "len": 0
+    },
+    "closed",
+    "closed",
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-024",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     3
+    ],
+    [
+     "send",
+     0,
+     "x y"
+    ],
+    [
+     "send",
+     0,
+     "b"
+    ],
+    [
+     "send",
+     0,
+     0
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "send",
+     1,
+     "é"
+    ],
+    [
+     "send",
+     1,
+     1000
+    ],
+    [
+     "send",
+     1,
+     "a"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     1,
+     1000
+    ],
+    [
+     "send",
+     1,
+     0
+    ],
+    [
+     "clone",
+     1
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "ok",
+    "ok",
+    {
+     "sender": 1
+    },
+    "ok",
+    "full",
+    "full",
+    "full",
+    {
+     "value": "x y"
+    },
+    "ok",
+    "full",
+    {
+     "sender": 2
+    }
+   ]
+  },
+  {
+   "id": "mpsc-025",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     2
+    ],
+    [
+     "close"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "close"
+    ],
+    [
+     "send",
+     0,
+     0
+    ],
+    [
+     "send",
+     0,
+     0
+    ],
+    [
+     "send",
+     0,
+     "b"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     "a"
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "closed",
+    "ok",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "ok",
+    {
+     "len": 0
+    },
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-026",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     null
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     "b"
+    ],
+    [
+     "len"
+    ],
+    [
+     "send",
+     0,
+     2
+    ],
+    [
+     "send",
+     0,
+     1000
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     "a"
+    ],
+    [
+     "send",
+     0,
+     "é"
+    ],
+    [
+     "send",
+     0,
+     1000
+    ],
+    [
+     "send",
+     0,
+     1000
+    ],
+    [
+     "recv"
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     "b"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ],
+    [
+     "send",
+     1,
+     7
+    ],
+    [
+     "send",
+     0,
+     ""
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "send",
+     1,
+     1000
+    ],
+    [
+     "send",
+     1,
+     2
+    ]
+   ],
+   "expected": [
+    "ok",
+    "empty",
+    "ok",
+    {
+     "len": 1
+    },
+    "ok",
+    "ok",
+    {
+     "value": "b"
+    },
+    "ok",
+    "ok",
+    "ok",
+    "ok",
+    {
+     "value": 2
+    },
+    {
+     "sender": 1
+    },
+    {
+     "value": 1000
+    },
+    "ok",
+    {
+     "value": "a"
+    },
+    {
+     "len": 4
+    },
+    "ok",
+    "ok",
+    "ok",
+    "ok",
+    "ok"
+   ]
+  },
+  {
+   "id": "mpsc-027",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     3
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     1,
+     1000
+    ],
+    [
+     "drop",
+     1
+    ]
+   ],
+   "expected": [
+    "ok",
+    {
+     "sender": 1
+    },
+    "empty",
+    "ok",
+    "ok"
+   ]
+  },
+  {
+   "id": "mpsc-028",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     5
+    ],
+    [
+     "send",
+     0,
+     7
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     1000
+    ],
+    [
+     "send",
+     0,
+     1
+    ],
+    [
+     "clone",
+     0
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    {
+     "value": 7
+    },
+    "empty",
+    {
+     "len": 0
+    },
+    "empty",
+    "ok",
+    "ok",
+    {
+     "sender": 1
+    }
+   ]
+  },
+  {
+   "id": "mpsc-029",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     1
+    ],
+    [
+     "send",
+     0,
+     1000
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     1000
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     2
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    {
+     "value": 1000
+    },
+    "ok",
+    {
+     "value": 1000
+    },
+    "empty",
+    "empty",
+    "ok",
+    {
+     "value": 2
+    }
+   ]
+  },
+  {
+   "id": "mpsc-030",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     1
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "close"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "closed",
+    {
+     "len": 0
+    },
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "ok",
+    "closed",
+    {
+     "len": 0
+    },
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    {
+     "len": 0
+    }
+   ]
+  },
+  {
+   "id": "mpsc-031",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     null
+    ],
+    [
+     "len"
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     1,
+     -1
+    ],
+    [
+     "send",
+     0,
+     "hello"
+    ],
+    [
+     "len"
+    ],
+    [
+     "close"
+    ],
+    [
+     "send",
+     1,
+     1
+    ],
+    [
+     "close"
+    ],
+    [
+     "send",
+     1,
+     ""
+    ],
+    [
+     "send",
+     1,
+     -1
+    ],
+    [
+     "send",
+     0,
+     ""
+    ],
+    [
+     "drop",
+     1
+    ],
+    [
+     "send",
+     0,
+     42
+    ]
+   ],
+   "expected": [
+    "ok",
+    {
+     "len": 0
+    },
+    {
+     "sender": 1
+    },
+    "empty",
+    "empty",
+    "ok",
+    "ok",
+    {
+     "len": 2
+    },
+    "ok",
+    "closed",
+    "ok",
+    "closed",
+    "closed",
+    "closed",
+    "ok",
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-032",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     5
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     1
+    ],
+    [
+     "send",
+     0,
+     "a"
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "drop",
+     1
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "send",
+     2,
+     0
+    ],
+    [
+     "clone",
+     2
+    ],
+    [
+     "send",
+     0,
+     1000
+    ],
+    [
+     "send",
+     2,
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     3,
+     42
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     3,
+     7
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     3,
+     0
+    ],
+    [
+     "send",
+     2,
+     7
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "empty",
+    "ok",
+    "ok",
+    {
+     "sender": 1
+    },
+    "ok",
+    {
+     "sender": 2
+    },
+    "ok",
+    {
+     "sender": 3
+    },
+    "ok",
+    "ok",
+    {
+     "value": 1
+    },
+    "ok",
+    {
+     "value": "a"
+    },
+    {
+     "value": 0
+    },
+    "ok",
+    {
+     "value": 1000
+    },
+    {
+     "value": 0
+    },
+    "ok",
+    "ok",
+    "ok",
+    {
+     "value": 42
+    },
+    {
+     "value": 7
+    },
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "id": "mpsc-033",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     2
+    ],
+    [
+     "send",
+     0,
+     "a"
+    ],
+    [
+     "send",
+     0,
+     42
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "ok",
+    "ok",
+    {
+     "value": "a"
+    }
+   ]
+  },
+  {
+   "id": "mpsc-034",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     1
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     1,
+     "b"
+    ],
+    [
+     "close"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    {
+     "len": 0
+    },
+    "empty",
+    "empty",
+    {
+     "sender": 1
+    },
+    "empty",
+    "empty",
+    "empty",
+    "ok",
+    "ok",
+    {
+     "value": "b"
+    }
+   ]
+  },
+  {
+   "id": "mpsc-035",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     null
+    ],
+    [
+     "close"
+    ],
+    [
+     "send",
+     0,
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "close"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "closed",
+    "closed",
+    "ok",
+    "closed",
+    {
+     "len": 0
+    }
+   ]
+  },
+  {
+   "id": "mpsc-036",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     null
+    ],
+    [
+     "send",
+     0,
+     "hello"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "close"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     1,
+     "x y"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     1,
+     1000
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     7
+    ],
+    [
+     "send",
+     0,
+     -1
+    ],
+    [
+     "clone",
+     0
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    {
+     "value": "hello"
+    },
+    {
+     "sender": 1
+    },
+    "ok",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    {
+     "sender": 2
+    }
+   ]
+  },
+  {
+   "id": "mpsc-037",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     1
+    ],
+    [
+     "send",
+     0,
+     "hello"
+    ],
+    [
+     "len"
+    ],
+    [
+     "send",
+     0,
+     42
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     "b"
+    ],
+    [
+     "send",
+     0,
+     2
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "len"
+    ],
+    [
+     "send",
+     1,
+     ""
+    ],
+    [
+     "drop",
+     1
+    ],
+    [
+     "send",
+     0,
+     7
+    ],
+    [
+     "send",
+     0,
+     ""
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     "b"
+    ],
+    [
+     "send",
+     0,
+     "b"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    {
+     "len": 1
+    },
+    "full",
+    {
+     "value": "hello"
+    },
+    "empty",
+    "ok",
+    "full",
+    {
+     "sender": 1
+    },
+    {
+     "len": 1
+    },
+    "full",
+    "ok",
+    "full",
+    "full",
+    {
+     "value": "b"
+    },
+    "empty",
+    "ok",
+    "full",
+    {
+     "value": "b"
+    },
+    "empty",
+    "ok",
+    "closed",
+    {
+     "len": 0
+    },
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-038",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     5
+    ],
+    [
+     "len"
+    ],
+    [
+     "send",
+     0,
+     "é"
+    ],
+    [
+     "send",
+     0,
+     1000
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "close"
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    {
+     "len": 0
+    },
+    "ok",
+    "ok",
+    {
+     "value": "é"
+    },
+    {
+     "value": 1000
+    },
+    "empty",
+    "ok",
+    "ok",
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-039",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     null
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "close"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "ok",
+    "closed",
+    {
+     "len": 0
+    },
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    {
+     "len": 0
+    },
+    "closed",
+    "closed",
+    "closed",
+    {
+     "len": 0
+    }
+   ]
+  },
+  {
+   "id": "mpsc-040",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     3
+    ],
+    [
+     "recv"
+    ],
+    [
+     "close"
+    ],
+    [
+     "send",
+     0,
+     "hello"
+    ],
+    [
+     "send",
+     0,
+     "é"
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "drop",
+     1
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "send",
+     0,
+     42
+    ],
+    [
+     "send",
+     0,
+     0
+    ],
+    [
+     "send",
+     2,
+     0
+    ]
+   ],
+   "expected": [
+    "ok",
+    "empty",
+    "ok",
+    "closed",
+    "closed",
+    {
+     "sender": 1
+    },
+    "ok",
+    "closed",
+    "closed",
+    "closed",
+    {
+     "sender": 2
+    },
+    "closed",
+    "closed",
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-041",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     1
+    ],
+    [
+     "recv"
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "close"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ],
+    [
+     "send",
+     1,
+     "hello"
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "drop",
+     1
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "empty",
+    {
+     "sender": 1
+    },
+    "empty",
+    "empty",
+    "ok",
+    "closed",
+    {
+     "len": 0
+    },
+    "closed",
+    "ok",
+    "ok",
+    "closed",
+    {
+     "len": 0
+    },
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-042",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     2
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     0
+    ],
+    [
+     "send",
+     0,
+     "a"
+    ],
+    [
+     "send",
+     0,
+     1
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "close"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "empty",
+    "ok",
+    "ok",
+    "full",
+    "ok",
+    {
+     "value": 0
+    },
+    "ok",
+    {
+     "value": "a"
+    },
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    {
+     "len": 0
+    },
+    "closed",
+    "closed",
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-043",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     1
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     2
+    ],
+    [
+     "send",
+     0,
+     2
+    ],
+    [
+     "send",
+     0,
+     "a"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     ""
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "send",
+     1,
+     1000
+    ],
+    [
+     "send",
+     0,
+     1000
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     1,
+     "hello"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ],
+    [
+     "len"
+    ],
+    [
+     "send",
+     0,
+     "b"
+    ],
+    [
+     "close"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "empty",
+    "ok",
+    "full",
+    "full",
+    {
+     "value": 2
+    },
+    "ok",
+    {
+     "sender": 1
+    },
+    "full",
+    "full",
+    {
+     "value": ""
+    },
+    "ok",
+    {
+     "value": "hello"
+    },
+    {
+     "len": 0
+    },
+    {
+     "len": 0
+    },
+    "ok",
+    "ok"
+   ]
+  },
+  {
+   "id": "mpsc-044",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     null
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     1000
+    ],
+    [
+     "send",
+     0,
+     -1
+    ],
+    [
+     "send",
+     0,
+     "b"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     "é"
+    ],
+    [
+     "send",
+     0,
+     1
+    ]
+   ],
+   "expected": [
+    "ok",
+    "empty",
+    "ok",
+    "ok",
+    "ok",
+    {
+     "value": 1000
+    },
+    "ok",
+    "ok"
+   ]
+  },
+  {
+   "id": "mpsc-045",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     1
+    ],
+    [
+     "close"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "send",
+     0,
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     1,
+     "x y"
+    ],
+    [
+     "close"
+    ],
+    [
+     "drop",
+     1
+    ],
+    [
+     "close"
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "drop",
+     2
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "closed",
+    "closed",
+    "closed",
+    {
+     "sender": 1
+    },
+    "closed",
+    "closed",
+    "closed",
+    "ok",
+    "ok",
+    "ok",
+    {
+     "sender": 2
+    },
+    "ok",
+    "closed",
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-046",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     1
+    ],
+    [
+     "send",
+     0,
+     0
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "send",
+     1,
+     -1
+    ],
+    [
+     "send",
+     0,
+     2
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     0
+    ],
+    [
+     "send",
+     1,
+     7
+    ],
+    [
+     "len"
+    ],
+    [
+     "send",
+     1,
+     2
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    {
+     "sender": 1
+    },
+    "full",
+    "full",
+    {
+     "value": 0
+    },
+    "ok",
+    "full",
+    {
+     "len": 1
+    },
+    "full"
+   ]
+  },
+  {
+   "id": "mpsc-047",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     5
+    ],
+    [
+     "send",
+     0,
+     2
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     "hello"
+    ],
+    [
+     "send",
+     0,
+     42
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    {
+     "value": 2
+    },
+    "ok",
+    "ok"
+   ]
+  },
+  {
+   "id": "mpsc-048",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     5
+    ],
+    [
+     "send",
+     0,
+     "b"
+    ],
+    [
+     "send",
+     0,
+     42
+    ],
+    [
+     "len"
+    ],
+    [
+     "len"
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "ok",
+    {
+     "len": 2
+    },
+    {
+     "len": 2
+    },
+    "ok",
+    {
+     "len": 2
+    },
+    {
+     "value": "b"
+    }
+   ]
+  },
+  {
+   "id": "mpsc-049",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     1
+    ],
+    [
+     "send",
+     0,
+     1000
+    ],
+    [
+     "send",
+     0,
+     1
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "send",
+     1,
+     7
+    ],
+    [
+     "send",
+     1,
+     ""
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     1,
+     1000
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     42
+    ],
+    [
+     "close"
+    ],
+    [
+     "send",
+     0,
+     "hello"
+    ],
+    [
+     "send",
+     1,
+     "b"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     1,
+     "b"
+    ],
+    [
+     "drop",
+     1
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "full",
+    {
+     "sender": 1
+    },
+    "full",
+    "full",
+    {
+     "value": 1000
+    },
+    "ok",
+    {
+     "value": 1000
+    },
+    "ok",
+    "ok",
+    "closed",
+    "closed",
+    {
+     "value": 42
+    },
+    "closed",
+    "ok"
+   ]
+  },
+  {
+   "id": "mpsc-050",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     3
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     1,
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     42
+    ],
+    [
+     "send",
+     1,
+     "a"
+    ],
+    [
+     "send",
+     1,
+     2
+    ],
+    [
+     "send",
+     0,
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     "x y"
+    ],
+    [
+     "send",
+     0,
+     1
+    ],
+    [
+     "send",
+     1,
+     42
+    ],
+    [
+     "close"
+    ],
+    [
+     "send",
+     1,
+     "b"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     1,
+     1000
+    ],
+    [
+     "send",
+     0,
+     "hello"
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "send",
+     1,
+     "x y"
+    ],
+    [
+     "send",
+     1,
+     ""
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    {
+     "sender": 1
+    },
+    "empty",
+    "ok",
+    {
+     "value": 0
+    },
+    "ok",
+    "ok",
+    "ok",
+    "full",
+    {
+     "value": 42
+    },
+    "ok",
+    "full",
+    "full",
+    "ok",
+    "closed",
+    {
+     "value": "a"
+    },
+    "closed",
+    "closed",
+    "ok",
+    "closed",
+    "closed",
+    {
+     "value": 2
+    }
+   ]
+  },
+  {
+   "id": "mpsc-051",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     5
+    ],
+    [
+     "send",
+     0,
+     1
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     "é"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "close"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "close"
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    {
+     "value": 1
+    },
+    "ok",
+    {
+     "value": "é"
+    },
+    "ok",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "ok",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "ok",
+    {
+     "len": 0
+    },
+    "closed",
+    {
+     "len": 0
+    }
+   ]
+  },
+  {
+   "id": "mpsc-052",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     5
+    ],
+    [
+     "send",
+     0,
+     0
+    ],
+    [
+     "send",
+     0,
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     1
+    ],
+    [
+     "send",
+     0,
+     "x y"
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ],
+    [
+     "len"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "ok",
+    {
+     "value": 0
+    },
+    "ok",
+    "ok",
+    "ok",
+    {
+     "value": 0
+    },
+    {
+     "value": 1
+    },
+    {
+     "len": 1
+    },
+    {
+     "value": "x y"
+    },
+    "closed",
+    {
+     "len": 0
+    },
+    "closed",
+    "closed",
+    "closed",
+    {
+     "len": 0
+    },
+    {
+     "len": 0
+    }
+   ]
+  },
+  {
+   "id": "mpsc-053",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     1
+    ],
+    [
+     "send",
+     0,
+     ""
+    ],
+    [
+     "send",
+     0,
+     2
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "send",
+     1,
+     "hello"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "full",
+    {
+     "sender": 1
+    },
+    {
+     "value": ""
+    },
+    "ok",
+    "ok"
+   ]
+  },
+  {
+   "id": "mpsc-054",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     2
+    ],
+    [
+     "send",
+     0,
+     1
+    ],
+    [
+     "send",
+     0,
+     7
+    ],
+    [
+     "send",
+     0,
+     42
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "ok",
+    "full",
+    "ok",
+    {
+     "value": 1
+    },
+    {
+     "value": 7
+    },
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-055",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     5
+    ],
+    [
+     "send",
+     0,
+     "b"
+    ],
+    [
+     "close"
+    ],
+    [
+     "send",
+     0,
+     "b"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     -1
+    ],
+    [
+     "send",
+     0,
+     "b"
+    ],
+    [
+     "send",
+     0,
+     "é"
+    ],
+    [
+     "send",
+     0,
+     42
+    ],
+    [
+     "send",
+     0,
+     1000
+    ],
+    [
+     "recv"
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     42
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "ok",
+    "closed",
+    {
+     "value": "b"
+    },
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    {
+     "sender": 1
+    },
+    "closed",
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-056",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     5
+    ],
+    [
+     "send",
+     0,
+     "é"
+    ],
+    [
+     "send",
+     0,
+     0
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "close"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "ok",
+    "ok",
+    {
+     "len": 2
+    },
+    {
+     "value": "é"
+    },
+    {
+     "value": 0
+    },
+    "closed",
+    "closed",
+    {
+     "len": 0
+    },
+    "closed",
+    "ok",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    {
+     "len": 0
+    },
+    "closed",
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-057",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     3
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     1000
+    ],
+    [
+     "send",
+     0,
+     0
+    ],
+    [
+     "send",
+     0,
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     "a"
+    ],
+    [
+     "send",
+     0,
+     2
+    ],
+    [
+     "send",
+     0,
+     "a"
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "empty",
+    "ok",
+    "ok",
+    "ok",
+    {
+     "value": 1000
+    },
+    "ok",
+    "full",
+    "full",
+    "ok",
+    {
+     "value": 0
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": "a"
+    },
+    {
+     "len": 0
+    }
+   ]
+  },
+  {
+   "id": "mpsc-058",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     null
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "empty",
+    "empty",
+    "ok",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-059",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     null
+    ],
+    [
+     "send",
+     0,
+     2
+    ],
+    [
+     "send",
+     0,
+     2
+    ],
+    [
+     "send",
+     0,
+     ""
+    ],
+    [
+     "len"
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "ok",
+    "ok",
+    {
+     "len": 3
+    },
+    "ok",
+    {
+     "value": 2
+    },
+    {
+     "len": 2
+    },
+    {
+     "value": 2
+    },
+    {
+     "value": ""
+    },
+    "closed",
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-060",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     2
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     1
+    ],
+    [
+     "send",
+     0,
+     0
+    ],
+    [
+     "len"
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "len"
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "empty",
+    "ok",
+    "ok",
+    {
+     "len": 2
+    },
+    "ok",
+    {
+     "len": 2
+    },
+    {
+     "len": 2
+    },
+    {
+     "value": 1
+    },
+    {
+     "value": 0
+    },
+    {
+     "len": 0
+    },
+    "closed",
+    {
+     "len": 0
+    },
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    {
+     "len": 0
+    },
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-061",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     2
+    ],
+    [
+     "send",
+     0,
+     1
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "close"
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    {
+     "len": 1
+    },
+    {
+     "value": 1
+    },
+    "ok",
+    "ok",
+    {
+     "len": 0
+    },
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    {
+     "len": 0
+    },
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    {
+     "len": 0
+    },
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-062",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     null
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "empty",
+    "empty",
+    "empty",
+    "ok",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-063",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     5
+    ],
+    [
+     "send",
+     0,
+     1
+    ],
+    [
+     "send",
+     0,
+     "x y"
+    ],
+    [
+     "send",
+     0,
+     1000
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     "a"
+    ],
+    [
+     "send",
+     0,
+     2
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "ok",
+    "ok",
+    {
+     "value": 1
+    },
+    {
+     "value": "x y"
+    },
+    "ok",
+    "ok",
+    "ok",
+    {
+     "value": 1000
+    },
+    {
+     "value": "a"
+    },
+    {
+     "value": 2
+    },
+    {
+     "len": 0
+    }
+   ]
+  },
+  {
+   "id": "mpsc-064",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     5
+    ],
+    [
+     "send",
+     0,
+     "é"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     -1
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    {
+     "value": "é"
+    },
+    "empty",
+    "ok",
+    {
+     "value": -1
+    }
+   ]
+  },
+  {
+   "id": "mpsc-065",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     3
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "len"
+    ],
+    [
+     "close"
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    {
+     "len": 0
+    },
+    "empty",
+    "ok",
+    {
+     "len": 0
+    },
+    "ok",
+    {
+     "len": 0
+    },
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-066",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     null
+    ],
+    [
+     "send",
+     0,
+     2
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     ""
+    ],
+    [
+     "send",
+     0,
+     "a"
+    ],
+    [
+     "close"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     1
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    {
+     "value": 2
+    },
+    "ok",
+    "ok",
+    "ok",
+    {
+     "value": ""
+    },
+    "closed",
+    {
+     "value": "a"
+    },
+    "closed",
+    "ok",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-067",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     null
+    ],
+    [
+     "send",
+     0,
+     42
+    ],
+    [
+     "send",
+     0,
+     ""
+    ],
+    [
+     "len"
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "drop",
+     1
+    ],
+    [
+     "send",
+     0,
+     "a"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     "a"
+    ],
+    [
+     "send",
+     0,
+     "é"
+    ],
+    [
+     "send",
+     0,
+     "a"
+    ],
+    [
+     "send",
+     0,
+     -1
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "ok",
+    {
+     "len": 2
+    },
+    {
+     "sender": 1
+    },
+    "ok",
+    "ok",
+    {
+     "value": 42
+    },
+    "ok",
+    "ok",
+    "ok",
+    "ok"
+   ]
+  },
+  {
+   "id": "mpsc-068",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     1
+    ],
+    [
+     "send",
+     0,
+     1
+    ],
+    [
+     "len"
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     1,
+     "x y"
+    ],
+    [
+     "send",
+     0,
+     -1
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     2
+    ],
+    [
+     "send",
+     0,
+     "a"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "close"
+    ],
+    [
+     "clone",
+     1
+    ],
+    [
+     "send",
+     1,
+     1000
+    ],
+    [
+     "send",
+     0,
+     7
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    {
+     "len": 1
+    },
+    {
+     "sender": 1
+    },
+    {
+     "value": 1
+    },
+    "empty",
+    "empty",
+    "empty",
+    "ok",
+    "full",
+    {
+     "value": "x y"
+    },
+    "ok",
+    "full",
+    {
+     "value": 2
+    },
+    "empty",
+    "ok",
+    {
+     "sender": 2
+    },
+    "closed",
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-069",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     1
+    ],
+    [
+     "send",
+     0,
+     2
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "send",
+     1,
+     0
+    ],
+    [
+     "send",
+     1,
+     7
+    ],
+    [
+     "send",
+     1,
+     "hello"
+    ],
+    [
+     "send",
+     1,
+     "b"
+    ],
+    [
+     "send",
+     1,
+     "a"
+    ],
+    [
+     "send",
+     1,
+     ""
+    ],
+    [
+     "send",
+     1,
+     42
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    {
+     "sender": 1
+    },
+    {
+     "value": 2
+    },
+    "empty",
+    "ok",
+    "ok",
+    "full",
+    "full",
+    "full",
+    "full",
+    "full",
+    "full",
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "id": "mpsc-070",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     null
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "close"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    {
+     "len": 0
+    },
+    "closed",
+    {
+     "len": 0
+    },
+    "closed",
+    {
+     "len": 0
+    },
+    "closed",
+    "ok",
+    "closed",
+    "closed",
+    {
+     "len": 0
+    },
+    "closed",
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-071",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     1
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     42
+    ],
+    [
+     "send",
+     0,
+     1
+    ],
+    [
+     "len"
+    ],
+    [
+     "send",
+     0,
+     "x y"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "close"
+    ],
+    [
+     "send",
+     0,
+     "a"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     "é"
+    ],
+    [
+     "send",
+     0,
+     ""
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "len"
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "empty",
+    "ok",
+    "full",
+    {
+     "len": 1
+    },
+    "full",
+    {
+     "value": 42
+    },
+    "ok",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "ok",
+    {
+     "len": 0
+    },
+    {
+     "len": 0
+    },
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    {
+     "len": 0
+    },
+    "closed",
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-072",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     1
+    ],
+    [
+     "send",
+     0,
+     "é"
+    ],
+    [
+     "send",
+     0,
+     7
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "send",
+     1,
+     "hello"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     1,
+     "hello"
+    ],
+    [
+     "send",
+     1,
+     "b"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     1,
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     "hello"
+    ],
+    [
+     "send",
+     0,
+     "hello"
+    ],
+    [
+     "send",
+     0,
+     ""
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     1,
+     "x y"
+    ],
+    [
+     "send",
+     1,
+     0
+    ],
+    [
+     "len"
+    ],
+    [
+     "send",
+     1,
+     "x y"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "full",
+    {
+     "sender": 1
+    },
+    "full",
+    {
+     "value": "é"
+    },
+    "empty",
+    "ok",
+    "full",
+    {
+     "value": "hello"
+    },
+    "ok",
+    {
+     "value": 0
+    },
+    "ok",
+    "full",
+    "full",
+    {
+     "value": "hello"
+    },
+    "ok",
+    "full",
+    {
+     "len": 1
+    },
+    "full"
+   ]
+  },
+  {
+   "id": "mpsc-073",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     null
+    ],
+    [
+     "send",
+     0,
+     0
+    ],
+    [
+     "send",
+     0,
+     "b"
+    ],
+    [
+     "send",
+     0,
+     "a"
+    ],
+    [
+     "send",
+     0,
+     ""
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "send",
+     0,
+     "hello"
+    ],
+    [
+     "send",
+     1,
+     ""
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     "é"
+    ],
+    [
+     "len"
+    ],
+    [
+     "len"
+    ],
+    [
+     "send",
+     0,
+     42
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     ""
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "ok",
+    "ok",
+    "ok",
+    {
+     "value": 0
+    },
+    {
+     "len": 3
+    },
+    {
+     "sender": 1
+    },
+    "ok",
+    "ok",
+    {
+     "value": "b"
+    },
+    "ok",
+    {
+     "len": 5
+    },
+    {
+     "len": 5
+    },
+    "ok",
+    {
+     "value": "a"
+    },
+    {
+     "value": ""
+    },
+    {
+     "value": "hello"
+    },
+    "ok"
+   ]
+  },
+  {
+   "id": "mpsc-074",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     null
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     ""
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     0
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "drop",
+     1
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "empty",
+    "empty",
+    "ok",
+    {
+     "value": ""
+    },
+    "ok",
+    {
+     "sender": 1
+    },
+    "ok",
+    "ok",
+    {
+     "value": 0
+    },
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-075",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     5
+    ],
+    [
+     "send",
+     0,
+     ""
+    ],
+    [
+     "send",
+     0,
+     -1
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "len"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "ok",
+    "ok",
+    {
+     "len": 2
+    }
+   ]
+  },
+  {
+   "id": "mpsc-076",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     5
+    ],
+    [
+     "send",
+     0,
+     1
+    ],
+    [
+     "send",
+     0,
+     "x y"
+    ],
+    [
+     "send",
+     0,
+     1000
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     "x y"
+    ],
+    [
+     "len"
+    ],
+    [
+     "send",
+     0,
+     2
+    ],
+    [
+     "send",
+     0,
+     ""
+    ],
+    [
+     "send",
+     0,
+     ""
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "ok",
+    "ok",
+    {
+     "value": 1
+    },
+    {
+     "value": "x y"
+    },
+    {
+     "value": 1000
+    },
+    "ok",
+    {
+     "len": 1
+    },
+    "ok",
+    "ok",
+    "ok"
+   ]
+  },
+  {
+   "id": "mpsc-077",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     null
+    ],
+    [
+     "close"
+    ],
+    [
+     "send",
+     0,
+     1000
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     "a"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     "x y"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     1000
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     1
+    ],
+    [
+     "send",
+     0,
+     "a"
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "send",
+     1,
+     0
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    {
+     "sender": 1
+    },
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-078",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     5
+    ],
+    [
+     "send",
+     0,
+     1
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "close"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "ok",
+    {
+     "value": 1
+    },
+    {
+     "len": 0
+    },
+    "closed",
+    "closed",
+    "closed",
+    "ok"
+   ]
+  },
+  {
+   "id": "mpsc-079",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     5
+    ],
+    [
+     "close"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     1000
+    ],
+    [
+     "send",
+     0,
+     7
+    ],
+    [
+     "len"
+    ],
+    [
+     "send",
+     0,
+     1
+    ],
+    [
+     "send",
+     0,
+     "x y"
+    ],
+    [
+     "len"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "closed",
+    "closed",
+    "closed",
+    {
+     "len": 0
+    },
+    "closed",
+    "closed",
+    {
+     "len": 0
+    }
+   ]
+  },
+  {
+   "id": "mpsc-080",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     2
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "send",
+     1,
+     1000
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     "b"
+    ],
+    [
+     "send",
+     0,
+     -1
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "len"
+    ],
+    [
+     "send",
+     1,
+     ""
+    ],
+    [
+     "send",
+     1,
+     -1
+    ],
+    [
+     "clone",
+     1
+    ],
+    [
+     "recv"
+    ],
+    [
+     "close"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "clone",
+     2
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     1,
+     1
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    {
+     "sender": 1
+    },
+    "ok",
+    {
+     "value": 1000
+    },
+    "ok",
+    "ok",
+    {
+     "value": "b"
+    },
+    {
+     "value": -1
+    },
+    "empty",
+    {
+     "len": 0
+    },
+    "ok",
+    "ok",
+    {
+     "sender": 2
+    },
+    {
+     "value": ""
+    },
+    "ok",
+    {
+     "value": -1
+    },
+    {
+     "sender": 3
+    },
+    "closed",
+    "closed",
+    "closed",
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-081",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     1
+    ],
+    [
+     "send",
+     0,
+     "hello"
+    ],
+    [
+     "len"
+    ],
+    [
+     "send",
+     0,
+     1
+    ],
+    [
+     "close"
+    ],
+    [
+     "send",
+     0,
+     1
+    ],
+    [
+     "send",
+     0,
+     "hello"
+    ],
+    [
+     "close"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     "a"
+    ],
+    [
+     "send",
+     0,
+     7
+    ],
+    [
+     "send",
+     0,
+     0
+    ],
+    [
+     "send",
+     0,
+     7
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     42
+    ],
+    [
+     "close"
+    ],
+    [
+     "send",
+     0,
+     2
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    {
+     "len": 1
+    },
+    "full",
+    "ok",
+    "closed",
+    "closed",
+    "ok",
+    {
+     "value": "hello"
+    },
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "closed",
+    "ok",
+    "closed",
+    "closed"
+   ]
+  },
+  {
+   "id": "mpsc-082",
+   "kind": "mpsc",
+   "note": "generated",
+   "ops": [
+    [
+     "new",
+     3
+    ],
+    [
+     "send",
+     0,
+     "b"
+    ],
+    [
+     "send",
+     0,
+     -1
+    ],
+    [
+     "send",
+     0,
+     1000
+    ],
+    [
+     "send",
+     0,
+     1
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     0,
+     "x y"
+    ],
+    [
+     "close"
+    ],
+    [
+     "clone",
+     0
+    ],
+    [
+     "send",
+     1,
+     "x y"
+    ],
+    [
+     "drop",
+     0
+    ],
+    [
+     "send",
+     1,
+     42
+    ],
+    [
+     "clone",
+     1
+    ],
+    [
+     "len"
+    ],
+    [
+     "send",
+     2,
+     2
+    ],
+    [
+     "send",
+     1,
+     "x y"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     1,
+     "a"
+    ],
+    [
+     "send",
+     2,
+     0
+    ],
+    [
+     "send",
+     1,
+     "é"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "ok",
+    "ok",
+    "full",
+    {
+     "value": "b"
+    },
+    "ok",
+    "ok",
+    {
+     "sender": 1
+    },
+    "closed",
+    "ok",
+    "closed",
+    {
+     "sender": 2
+    },
+    {
+     "len": 3
+    },
+    "closed",
+    "closed",
+    {
+     "value": -1
+    },
+    "closed",
+    "closed",
+    "closed"
+   ]
+  },
+  {
+   "id": "oneshot-001",
+   "kind": "oneshot",
+   "note": "empty, then value, then closed",
+   "ops": [
+    [
+     "new"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "send",
+     5
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "empty",
+    "ok",
+    {
+     "value": 5
+    },
+    "closed"
+   ]
+  },
+  {
+   "id": "oneshot-002",
+   "kind": "oneshot",
+   "note": "second send is rejected",
+   "ops": [
+    [
+     "new"
+    ],
+    [
+     "send",
+     "v"
+    ],
+    [
+     "send",
+     "w"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "already_sent",
+    {
+     "value": "v"
+    }
+   ]
+  },
+  {
+   "id": "oneshot-003",
+   "kind": "oneshot",
+   "note": "sender dropped without a value",
+   "ops": [
+    [
+     "new"
+    ],
+    [
+     "drop_tx"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "closed"
+   ]
+  },
+  {
+   "id": "oneshot-004",
+   "kind": "oneshot",
+   "note": "value survives sender drop",
+   "ops": [
+    [
+     "new"
+    ],
+    [
+     "send",
+     1
+    ],
+    [
+     "drop_tx"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "ok",
+    {
+     "value": 1
+    }
+   ]
+  },
+  {
+   "id": "oneshot-005",
+   "kind": "oneshot",
+   "note": "send after receiver close",
+   "ops": [
+    [
+     "new"
+    ],
+    [
+     "close"
+    ],
+    [
+     "send",
+     1
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "closed"
+   ]
+  },
+  {
+   "id": "oneshot-006",
+   "kind": "oneshot",
+   "note": "value sent before close is kept",
+   "ops": [
+    [
+     "new"
+    ],
+    [
+     "send",
+     1
+    ],
+    [
+     "close"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "ok",
+    {
+     "value": 1
+    }
+   ]
+  },
+  {
+   "id": "oneshot-007",
+   "kind": "oneshot",
+   "note": "recv after close without value",
+   "ops": [
+    [
+     "new"
+    ],
+    [
+     "close"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "closed"
+   ]
+  },
+  {
+   "id": "oneshot-008",
+   "kind": "oneshot",
+   "note": "a failed send still uses the sender",
+   "ops": [
+    [
+     "new"
+    ],
+    [
+     "close"
+    ],
+    [
+     "send",
+     1
+    ],
+    [
+     "send",
+     2
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "closed",
+    "already_sent"
+   ]
+  },
+  {
+   "id": "oneshot-009",
+   "kind": "oneshot",
+   "note": "empty string value",
+   "ops": [
+    [
+     "new"
+    ],
+    [
+     "send",
+     ""
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    {
+     "value": ""
+    }
+   ]
+  },
+  {
+   "id": "oneshot-010",
+   "kind": "oneshot",
+   "note": "zero value",
+   "ops": [
+    [
+     "new"
+    ],
+    [
+     "send",
+     0
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    {
+     "value": 0
+    }
+   ]
+  },
+  {
+   "id": "oneshot-011",
+   "kind": "oneshot",
+   "note": "empty is repeatable",
+   "ops": [
+    [
+     "new"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "drop_tx"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "empty",
+    "empty",
+    "ok",
+    "closed"
+   ]
+  },
+  {
+   "id": "oneshot-012",
+   "kind": "oneshot",
+   "note": "close is idempotent",
+   "ops": [
+    [
+     "new"
+    ],
+    [
+     "close"
+    ],
+    [
+     "close"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "ok",
+    "closed"
+   ]
+  },
+  {
+   "id": "oneshot-013",
+   "kind": "oneshot",
+   "note": "taken once",
+   "ops": [
+    [
+     "new"
+    ],
+    [
+     "send",
+     "中"
+    ],
+    [
+     "close"
+    ],
+    [
+     "recv"
+    ],
+    [
+     "recv"
+    ]
+   ],
+   "expected": [
+    "ok",
+    "ok",
+    "ok",
+    {
+     "value": "中"
+    },
+    "closed"
+   ]
+  },
+  {
+   "id": "join_all-001",
+   "kind": "join_all",
+   "note": "empty list",
+   "tasks": [],
+   "expected": {
+    "ok": []
+   }
+  },
+  {
+   "id": "join_all-002",
+   "kind": "join_all",
+   "note": "single ready task",
+   "tasks": [
+    {
+     "value": 1
+    }
+   ],
+   "expected": {
+    "ok": [
+     1
+    ]
+   }
+  },
+  {
+   "id": "join_all-003",
+   "kind": "join_all",
+   "note": "input order, not completion order",
+   "tasks": [
+    {
+     "yields": 3,
+     "value": "a"
+    },
+    {
+     "yields": 0,
+     "value": "b"
+    },
+    {
+     "yields": 1,
+     "value": "c"
+    }
+   ],
+   "expected": {
+    "ok": [
+     "a",
+     "b",
+     "c"
+    ]
+   }
+  },
+  {
+   "id": "join_all-004",
+   "kind": "join_all",
+   "note": "reverse completion order",
+   "tasks": [
+    {
+     "yields": 5,
+     "value": 1
+    },
+    {
+     "yields": 4,
+     "value": 2
+    },
+    {
+     "yields": 3,
+     "value": 3
+    },
+    {
+     "yields": 2,
+     "value": 4
+    },
+    {
+     "yields": 1,
+     "value": 5
+    }
+   ],
+   "expected": {
+    "ok": [
+     1,
+     2,
+     3,
+     4,
+     5
+    ]
+   }
+  },
+  {
+   "id": "join_all-005",
+   "kind": "join_all",
+   "note": "one failure",
+   "tasks": [
+    {
+     "value": 1
+    },
+    {
+     "error": "boom"
+    }
+   ],
+   "expected": {
+    "error": "boom"
+   }
+  },
+  {
+   "id": "join_all-006",
+   "kind": "join_all",
+   "note": "lowest index failure wins, not the earliest",
+   "tasks": [
+    {
+     "yields": 4,
+     "error": "first"
+    },
+    {
+     "yields": 0,
+     "error": "second"
+    }
+   ],
+   "expected": {
+    "error": "first"
+   }
+  },
+  {
+   "id": "join_all-007",
+   "kind": "join_all",
+   "note": "lowest index among several failures",
+   "tasks": [
+    {
+     "value": 1
+    },
+    {
+     "yields": 2,
+     "error": "e2"
+    },
+    {
+     "yields": 1,
+     "error": "e3"
+    },
+    {
+     "value": 4
+    }
+   ],
+   "expected": {
+    "error": "e2"
+   }
+  },
+  {
+   "id": "join_all-008",
+   "kind": "join_all",
+   "note": "falsy values kept",
+   "tasks": [
+    {
+     "yields": 2,
+     "value": ""
+    },
+    {
+     "value": 0
+    }
+   ],
+   "expected": {
+    "ok": [
+     "",
+     0
+    ]
+   }
+  },
+  {
+   "id": "join_all-009",
+   "kind": "join_all",
+   "note": "generated",
+   "tasks": [
+    {
+     "yields": 5,
+     "value": ""
+    },
+    {
+     "yields": 2,
+     "value": "x y"
+    }
+   ],
+   "expected": {
+    "ok": [
+     "",
+     "x y"
+    ]
+   }
+  },
+  {
+   "id": "join_all-010",
+   "kind": "join_all",
+   "note": "generated",
+   "tasks": [
+    {
+     "yields": 2,
+     "value": "x y"
+    },
+    {
+     "yields": 0,
+     "value": "x y"
+    },
+    {
+     "yields": 2,
+     "value": 1
+    },
+    {
+     "yields": 2,
+     "value": 1
+    },
+    {
+     "yields": 1,
+     "value": "é"
+    },
+    {
+     "yields": 5,
+     "value": "x y"
+    },
+    {
+     "yields": 1,
+     "value": "a"
+    },
+    {
+     "yields": 1,
+     "error": "err7"
+    }
+   ],
+   "expected": {
+    "error": "err7"
+   }
+  },
+  {
+   "id": "join_all-011",
+   "kind": "join_all",
+   "note": "generated",
+   "tasks": [
+    {
+     "yields": 3,
+     "error": "err0"
+    },
+    {
+     "yields": 1,
+     "value": "x y"
+    },
+    {
+     "yields": 3,
+     "value": -1
+    },
+    {
+     "yields": 0,
+     "value": "a"
+    },
+    {
+     "yields": 1,
+     "error": "err4"
+    },
+    {
+     "yields": 0,
+     "value": "b"
+    },
+    {
+     "yields": 5,
+     "value": "é"
+    },
+    {
+     "yields": 0,
+     "value": 7
+    }
+   ],
+   "expected": {
+    "error": "err0"
+   }
+  },
+  {
+   "id": "join_all-012",
+   "kind": "join_all",
+   "note": "generated",
+   "tasks": [
+    {
+     "yields": 6,
+     "value": ""
+    },
+    {
+     "yields": 1,
+     "value": 2
+    },
+    {
+     "yields": 3,
+     "value": "é"
+    },
+    {
+     "yields": 6,
+     "value": ""
+    },
+    {
+     "yields": 3,
+     "value": "hello"
+    },
+    {
+     "yields": 2,
+     "value": "b"
+    }
+   ],
+   "expected": {
+    "ok": [
+     "",
+     2,
+     "é",
+     "",
+     "hello",
+     "b"
+    ]
+   }
+  },
+  {
+   "id": "join_all-013",
+   "kind": "join_all",
+   "note": "generated",
+   "tasks": [
+    {
+     "yields": 6,
+     "value": "b"
+    },
+    {
+     "yields": 6,
+     "error": "err1"
+    },
+    {
+     "yields": 0,
+     "error": "err2"
+    }
+   ],
+   "expected": {
+    "error": "err1"
+   }
+  },
+  {
+   "id": "join_all-014",
+   "kind": "join_all",
+   "note": "generated",
+   "tasks": [
+    {
+     "yields": 5,
+     "value": 1000
+    },
+    {
+     "yields": 1,
+     "value": 0
+    },
+    {
+     "yields": 2,
+     "value": -1
+    },
+    {
+     "yields": 5,
+     "error": "err3"
+    },
+    {
+     "yields": 1,
+     "value": 0
+    }
+   ],
+   "expected": {
+    "error": "err3"
+   }
+  },
+  {
+   "id": "join_all-015",
+   "kind": "join_all",
+   "note": "generated",
+   "tasks": [
+    {
+     "yields": 6,
+     "value": 42
+    },
+    {
+     "yields": 2,
+     "value": 7
+    },
+    {
+     "yields": 2,
+     "value": "a"
+    },
+    {
+     "yields": 6,
+     "value": 0
+    }
+   ],
+   "expected": {
+    "ok": [
+     42,
+     7,
+     "a",
+     0
+    ]
+   }
+  },
+  {
+   "id": "join_all-016",
+   "kind": "join_all",
+   "note": "generated",
+   "tasks": [
+    {
+     "yields": 5,
+     "value": ""
+    },
+    {
+     "yields": 1,
+     "value": "hello"
+    },
+    {
+     "yields": 4,
+     "value": -1
+    },
+    {
+     "yields": 4,
+     "value": 1
+    },
+    {
+     "yields": 5,
+     "value": -1
+    },
+    {
+     "yields": 5,
+     "error": "err5"
+    },
+    {
+     "yields": 5,
+     "value": "hello"
+    }
+   ],
+   "expected": {
+    "error": "err5"
+   }
+  },
+  {
+   "id": "join_all-017",
+   "kind": "join_all",
+   "note": "generated",
+   "tasks": [
+    {
+     "yields": 2,
+     "value": 7
+    }
+   ],
+   "expected": {
+    "ok": [
+     7
+    ]
+   }
+  },
+  {
+   "id": "join_all-018",
+   "kind": "join_all",
+   "note": "generated",
+   "tasks": [
+    {
+     "yields": 6,
+     "value": "a"
+    }
+   ],
+   "expected": {
+    "ok": [
+     "a"
+    ]
+   }
+  },
+  {
+   "id": "join_all-019",
+   "kind": "join_all",
+   "note": "generated",
+   "tasks": [
+    {
+     "yields": 0,
+     "value": 2
+    }
+   ],
+   "expected": {
+    "ok": [
+     2
+    ]
+   }
+  },
+  {
+   "id": "join_all-020",
+   "kind": "join_all",
+   "note": "generated",
+   "tasks": [
+    {
+     "yields": 5,
+     "value": 42
+    },
+    {
+     "yields": 1,
+     "value": 0
+    },
+    {
+     "yields": 1,
+     "value": "é"
+    },
+    {
+     "yields": 4,
+     "value": ""
+    },
+    {
+     "yields": 2,
+     "value": "x y"
+    },
+    {
+     "yields": 4,
+     "value": 1
+    }
+   ],
+   "expected": {
+    "ok": [
+     42,
+     0,
+     "é",
+     "",
+     "x y",
+     1
+    ]
+   }
+  },
+  {
+   "id": "select-001",
+   "kind": "select",
+   "note": "first ready",
+   "tasks": [
+    {
+     "value": 1
+    },
+    {
+     "never": true
+    }
+   ],
+   "expected": {
+    "index": 0,
+    "value": 1
+   }
+  },
+  {
+   "id": "select-002",
+   "kind": "select",
+   "note": "second ready",
+   "tasks": [
+    {
+     "never": true
+    },
+    {
+     "value": "b"
+    }
+   ],
+   "expected": {
+    "index": 1,
+    "value": "b"
+   }
+  },
+  {
+   "id": "select-003",
+   "kind": "select",
+   "note": "tie goes to the lowest index",
+   "tasks": [
+    {
+     "value": "a"
+    },
+    {
+     "value": "b"
+    }
+   ],
+   "expected": {
+    "index": 0,
+    "value": "a"
+   }
+  },
+  {
+   "id": "select-004",
+   "kind": "select",
+   "note": "lowest ready index",
+   "tasks": [
+    {
+     "never": true
+    },
+    {
+     "never": true
+    },
+    {
+     "value": 3
+    },
+    {
+     "value": 4
+    }
+   ],
+   "expected": {
+    "index": 2,
+    "value": 3
+   }
+  },
+  {
+   "id": "select-005",
+   "kind": "select",
+   "note": "single task",
+   "tasks": [
+    {
+     "value": 9
+    }
+   ],
+   "expected": {
+    "index": 0,
+    "value": 9
+   }
+  },
+  {
+   "id": "select-006",
+   "kind": "select",
+   "note": "a ready failure is the result",
+   "tasks": [
+    {
+     "never": true
+    },
+    {
+     "error": "bad"
+    }
+   ],
+   "expected": {
+    "error": "bad"
+   }
+  },
+  {
+   "id": "select-007",
+   "kind": "select",
+   "note": "ready failure at lower index wins",
+   "tasks": [
+    {
+     "error": "bad"
+    },
+    {
+     "value": 1
+    }
+   ],
+   "expected": {
+    "error": "bad"
+   }
+  },
+  {
+   "id": "select-008",
+   "kind": "select",
+   "note": "ready value at lower index wins",
+   "tasks": [
+    {
+     "value": 1
+    },
+    {
+     "error": "bad"
+    }
+   ],
+   "expected": {
+    "index": 0,
+    "value": 1
+   }
+  },
+  {
+   "id": "select-009",
+   "kind": "select",
+   "note": "empty string value",
+   "tasks": [
+    {
+     "never": true
+    },
+    {
+     "value": ""
+    }
+   ],
+   "expected": {
+    "index": 1,
+    "value": ""
+   }
+  },
+  {
+   "id": "select-010",
+   "kind": "select",
+   "note": "generated",
+   "tasks": [
+    {
+     "value": "b"
+    },
+    {
+     "value": "é"
+    }
+   ],
+   "expected": {
+    "index": 0,
+    "value": "b"
+   }
+  },
+  {
+   "id": "select-011",
+   "kind": "select",
+   "note": "generated",
+   "tasks": [
+    {
+     "value": 0
+    },
+    {
+     "never": true
+    },
+    {
+     "value": "b"
+    },
+    {
+     "value": "a"
+    }
+   ],
+   "expected": {
+    "index": 0,
+    "value": 0
+   }
+  },
+  {
+   "id": "select-012",
+   "kind": "select",
+   "note": "generated",
+   "tasks": [
+    {
+     "value": 42
+    },
+    {
+     "value": 7
+    },
+    {
+     "never": true
+    },
+    {
+     "value": -1
+    }
+   ],
+   "expected": {
+    "index": 0,
+    "value": 42
+   }
+  },
+  {
+   "id": "select-013",
+   "kind": "select",
+   "note": "generated",
+   "tasks": [
+    {
+     "value": 1000
+    },
+    {
+     "never": true
+    }
+   ],
+   "expected": {
+    "index": 0,
+    "value": 1000
+   }
+  },
+  {
+   "id": "select-014",
+   "kind": "select",
+   "note": "generated",
+   "tasks": [
+    {
+     "value": "x y"
+    }
+   ],
+   "expected": {
+    "index": 0,
+    "value": "x y"
+   }
+  },
+  {
+   "id": "select-015",
+   "kind": "select",
+   "note": "generated",
+   "tasks": [
+    {
+     "value": "é"
+    },
+    {
+     "value": "hello"
+    },
+    {
+     "value": "é"
+    },
+    {
+     "value": "b"
+    },
+    {
+     "value": 0
+    },
+    {
+     "value": "b"
+    }
+   ],
+   "expected": {
+    "index": 0,
+    "value": "é"
+   }
+  },
+  {
+   "id": "select-016",
+   "kind": "select",
+   "note": "generated",
+   "tasks": [
+    {
+     "never": true
+    },
+    {
+     "never": true
+    },
+    {
+     "never": true
+    },
+    {
+     "never": true
+    },
+    {
+     "value": 1
+    }
+   ],
+   "expected": {
+    "index": 4,
+    "value": 1
+   }
+  },
+  {
+   "id": "select-017",
+   "kind": "select",
+   "note": "generated",
+   "tasks": [
+    {
+     "never": true
+    },
+    {
+     "never": true
+    },
+    {
+     "value": "é"
+    },
+    {
+     "never": true
+    }
+   ],
+   "expected": {
+    "index": 2,
+    "value": "é"
+   }
+  },
+  {
+   "id": "select-018",
+   "kind": "select",
+   "note": "generated",
+   "tasks": [
+    {
+     "never": true
+    },
+    {
+     "never": true
+    },
+    {
+     "value": 0
+    },
+    {
+     "never": true
+    },
+    {
+     "never": true
+    },
+    {
+     "never": true
+    }
+   ],
+   "expected": {
+    "index": 2,
+    "value": 0
+   }
+  },
+  {
+   "id": "select-019",
+   "kind": "select",
+   "note": "generated",
+   "tasks": [
+    {
+     "value": 0
+    },
+    {
+     "value": 42
+    },
+    {
+     "value": 7
+    },
+    {
+     "never": true
+    },
+    {
+     "never": true
+    },
+    {
+     "never": true
+    }
+   ],
+   "expected": {
+    "index": 0,
+    "value": 0
+   }
+  },
+  {
+   "id": "timeout-001",
+   "kind": "timeout",
+   "note": "ready value",
+   "task": {
+    "value": 1
+   },
+   "expected": {
+    "ok": 1
+   }
+  },
+  {
+   "id": "timeout-002",
+   "kind": "timeout",
+   "note": "never completes",
+   "task": {
+    "never": true
+   },
+   "expected": "timeout"
+  },
+  {
+   "id": "timeout-003",
+   "kind": "timeout",
+   "note": "failure passes through",
+   "task": {
+    "error": "late"
+   },
+   "expected": {
+    "error": "late"
+   }
+  },
+  {
+   "id": "timeout-004",
+   "kind": "timeout",
+   "note": "yields well inside the deadline",
+   "task": {
+    "yields": 5,
+    "value": "slow"
+   },
+   "expected": {
+    "ok": "slow"
+   }
+  },
+  {
+   "id": "timeout-005",
+   "kind": "timeout",
+   "note": "failure after yields",
+   "task": {
+    "yields": 2,
+    "error": "x"
+   },
+   "expected": {
+    "error": "x"
+   }
+  },
+  {
+   "id": "timeout-006",
+   "kind": "timeout",
+   "note": "empty string value",
+   "task": {
+    "value": ""
+   },
+   "expected": {
+    "ok": ""
+   }
+  },
+  {
+   "id": "timeout-007",
+   "kind": "timeout",
+   "note": "zero value",
+   "task": {
+    "value": 0
+   },
+   "expected": {
+    "ok": 0
+   }
+  }
+ ]
+}

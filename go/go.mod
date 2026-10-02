@@ -1,3 +1,3 @@
-module github.com/codinglombok/LombokAsync/go
+module github.com/codinglombok/lombokasync/go
 
-go 1.21
+go 1.22

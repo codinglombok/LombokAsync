@@ -5,120 +5,151 @@ declare(strict_types=1);
 namespace LombokAsync\Executor;
 
 /**
- * Simple event loop using PHP Fibers for cooperative multitasking.
+ * Cooperative event loop on PHP Fibers.
  *
- * Tasks are scheduled as Fibers and run cooperatively — each task
- * must yield control back to the loop by calling EventLoop::yield().
+ * Tasks run until they yield, sleep, or wait (on a task or a channel). The
+ * loop keeps a ready queue and a timer heap; when nothing is ready it sleeps
+ * until the earliest timer instead of polling.
  */
-class EventLoop
+final class EventLoop
 {
-    /** @var \Fiber[] */
-    private array $fibers = [];
-
-    /** @var array<int, mixed> Task results indexed by task ID */
-    private array $results = [];
-
-    /** @var array<int, bool> Completed task IDs */
-    private array $completed = [];
-
-    private int $nextId = 0;
+    /** @var \SplQueue<Task> */
+    private \SplQueue $ready;
+    /** @var \SplMinHeap<array{float, int, Task}> */
+    private \SplMinHeap $timers;
+    private int $timerSeq = 0;
+    private int $finishedSeq = 0;
+    private ?Task $running = null;
 
     private static ?EventLoop $current = null;
 
-    /** Get the current running event loop. */
-    public static function current(): ?EventLoop
+    public function __construct()
     {
-        return self::$current;
+        $this->ready = new \SplQueue();
+        $this->timers = new \SplMinHeap();
     }
 
     /**
-     * Spawn a task (callable) on the event loop. Returns a task ID.
+     * Runs $main as a task on a new loop until it finishes and returns its
+     * result (or throws its error). Tasks still pending at that point are
+     * abandoned.
      */
-    public function spawn(callable $fn): int
+    public static function run(callable $main): mixed
     {
-        $id = $this->nextId++;
-        $this->fibers[$id] = new \Fiber(function () use ($fn, $id) {
-            $result = $fn();
-            $this->results[$id] = $result;
-            $this->completed[$id] = true;
-            return $result;
-        });
-        return $id;
-    }
-
-    /**
-     * Run the event loop until all tasks complete.
-     *
-     * @return mixed Result of the first spawned task, or null.
-     */
-    public function run(): mixed
-    {
+        $loop = new self();
         $previous = self::$current;
-        self::$current = $this;
-
+        self::$current = $loop;
         try {
-            while (!empty($this->fibers)) {
-                $remaining = [];
-                foreach ($this->fibers as $id => $fiber) {
-                    if ($fiber->isStarted()) {
-                        if ($fiber->isSuspended()) {
-                            $fiber->resume();
-                        }
-                    } else {
-                        $fiber->start();
-                    }
-
-                    if (!$fiber->isTerminated()) {
-                        $remaining[$id] = $fiber;
-                    }
-                }
-                $this->fibers = $remaining;
-
-                if (!empty($this->fibers)) {
-                    usleep(1000); // 1ms yield
-                }
-            }
+            $task = $loop->spawn($main);
+            $loop->runUntil($task);
+            return $task->await();
         } finally {
             self::$current = $previous;
         }
-
-        return $this->results[0] ?? null;
     }
 
-    /**
-     * Check if a task has completed.
-     */
-    public function isCompleted(int $taskId): bool
+    /** The loop that is running now; throws \LogicException outside {@see run()}. */
+    public static function current(): self
     {
-        return isset($this->completed[$taskId]);
+        return self::$current ?? throw new \LogicException('no LombokAsync event loop is running; use EventLoop::run()');
     }
 
-    /**
-     * Get the result of a completed task.
-     */
-    public function getResult(int $taskId): mixed
+    /** Creates a task that starts at the loop's next scheduling step. */
+    public function spawn(callable $fn): Task
     {
-        return $this->results[$taskId] ?? null;
+        $task = new Task($this, $fn);
+        $this->wake($task);
+        return $task;
     }
 
-    /**
-     * Yield control back to the event loop from within a Fiber.
-     */
+    /** Lets other ready tasks run before continuing. */
     public static function yield(): void
     {
-        if (\Fiber::getCurrent() !== null) {
-            \Fiber::suspend();
+        $loop = self::current();
+        $loop->wake($loop->currentTask());
+        $loop->park();
+    }
+
+    /** Suspends the current task for $ms milliseconds. */
+    public function sleep(float $ms): void
+    {
+        $deadline = microtime(true) + max(0.0, $ms) / 1000.0;
+        $task = $this->currentTask();
+        while (microtime(true) < $deadline) {
+            $this->wakeAt($deadline, $task);
+            $this->park();
         }
     }
 
-    /**
-     * Await a task by ID — yield until it completes.
-     */
-    public function await(int $taskId): mixed
+    /** @internal Schedules $task to be woken at $deadline (microtime seconds). */
+    public function wakeAt(float $deadline, Task $task): void
     {
-        while (!$this->isCompleted($taskId)) {
-            self::yield();
+        $this->timers->insert([$deadline, $this->timerSeq++, $task]);
+    }
+
+    /**
+     * @internal Suspends the current task until something calls wake() on it.
+     * Callers re-check their condition after waking: wake-ups can be spurious.
+     */
+    public function park(): void
+    {
+        \Fiber::suspend();
+    }
+
+    /** @internal Puts $task in the ready queue (no-op when queued or done). */
+    public function wake(Task $task): void
+    {
+        if (!$task->queued && !$task->isDone()) {
+            $task->queued = true;
+            $this->ready->enqueue($task);
         }
-        return $this->results[$taskId] ?? null;
+    }
+
+    /** @internal The task that is running now. */
+    public function currentTask(): Task
+    {
+        return $this->running ?? throw new \LogicException('this operation must run inside a LombokAsync task');
+    }
+
+    /** @internal */
+    public function nextFinishedSeq(): int
+    {
+        return ++$this->finishedSeq;
+    }
+
+    private function runUntil(Task $main): void
+    {
+        while (!$main->isDone()) {
+            $this->fireTimers();
+            if ($this->ready->isEmpty()) {
+                if ($this->timers->isEmpty()) {
+                    throw new \LogicException('deadlock: every task is waiting and no timer is pending');
+                }
+                $wait = $this->timers->top()[0] - microtime(true);
+                if ($wait > 0) {
+                    usleep((int) ceil($wait * 1_000_000));
+                }
+                continue;
+            }
+            $task = $this->ready->dequeue();
+            $task->queued = false;
+            if ($task->isDone()) {
+                continue;
+            }
+            $this->running = $task;
+            try {
+                $task->fiber->isStarted() ? $task->fiber->resume() : $task->fiber->start();
+            } finally {
+                $this->running = null;
+            }
+        }
+    }
+
+    private function fireTimers(): void
+    {
+        $now = microtime(true);
+        while (!$this->timers->isEmpty() && $this->timers->top()[0] <= $now) {
+            $this->wake($this->timers->extract()[2]);
+        }
     }
 }

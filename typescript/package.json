@@ -1,20 +1,60 @@
 {
   "name": "lombokasync",
-  "version": "0.1.0",
-  "description": "Lightweight async utilities — task spawning, timers, channels, combinators",
+  "version": "0.2.0",
+  "description": "Async helpers on native promises: timeout, interval, bounded and unbounded mpsc channels, oneshot channels, joinAll and select with a cross-language contract. Zero dependencies. Part of the Lombok Ecosystem.",
+  "keywords": [
+    "async",
+    "channel",
+    "mpsc",
+    "oneshot",
+    "timeout",
+    "select",
+    "zero-dependency",
+    "lombok-ecosystem"
+  ],
+  "homepage": "https://github.com/codinglombok/LombokAsync",
+  "bugs": {
+    "url": "https://github.com/codinglombok/LombokAsync/issues"
+  },
+  "license": "Apache-2.0",
+  "author": "codinglombok",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/codinglombok/LombokAsync.git",
+    "directory": "typescript"
+  },
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "license": "Apache-2.0",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/codinglombok/LombokAsync"
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
   },
+  "files": [
+    "dist/index.js",
+    "dist/index.d.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
   "scripts": {
-    "build": "tsc",
-    "test": "node --experimental-vm-modules dist/test.js"
+    "build": "tsc -p tsconfig.json",
+    "build:test": "tsc -p tsconfig.test.json",
+    "test": "npm run build:test && cd build && node --test",
+    "coverage": "npm run build:test && node scripts/coverage.mjs build",
+    "lint": "tsc -p tsconfig.test.json --noEmit",
+    "prepublishOnly": "npm run build",
+    "fuzz": "npm run build:test && node build/tests/fuzz/channels.fuzz.js"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "devDependencies": {
-    "@types/node": "^26.6.2"
+    "@types/node": "^22.10.0",
+    "lombokfuzzer": "^0.1.0",
+    "typescript": "^5.9.3"
   }
 }
