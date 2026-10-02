@@ -4,80 +4,59 @@ declare(strict_types=1);
 
 namespace LombokAsync\Timer;
 
+use LombokAsync\AsyncException;
 use LombokAsync\Executor\EventLoop;
 
 /**
- * Timer utilities for cooperative async.
+ * Timers for tasks on the running {@see EventLoop}.
  */
-class Timer
+final class Timer
 {
-    /**
-     * Sleep for the given number of milliseconds (cooperative — yields to event loop).
-     */
-    public static function sleep(int $ms): void
+    /** Suspends the current task for $ms milliseconds; other tasks keep running. */
+    public static function sleep(float $ms): void
     {
-        $deadline = microtime(true) + ($ms / 1000.0);
-        while (microtime(true) < $deadline) {
-            EventLoop::yield();
-        }
+        EventLoop::current()->sleep($ms);
     }
 
     /**
-     * Run a callable with a timeout. Returns [result, true] if it completes in time,
-     * or [null, false] if the deadline elapses.
-     *
-     * Note: Only works with cooperative tasks that call EventLoop::yield().
-     * For blocking operations, use the non-cooperative version.
-     *
-     * @return array{0: mixed, 1: bool}
+     * Runs $fn as a task and returns its result, or throws AsyncException
+     * TIMEOUT after $ms milliseconds (the task is then cancelled). Errors from
+     * $fn pass through. A task that finishes in the same step as the deadline wins.
      */
-    public static function timeout(int $ms, callable $fn): array
+    public static function timeout(float $ms, callable $fn): mixed
     {
-        $deadline = microtime(true) + ($ms / 1000.0);
-        $loop = new EventLoop();
-        $taskId = $loop->spawn($fn);
-
-        while (!$loop->isCompleted($taskId)) {
+        $loop = EventLoop::current();
+        $deadline = microtime(true) + max(0.0, $ms) / 1000.0;
+        $task = $loop->spawn($fn);
+        $self = $loop->currentTask();
+        while (!$task->isDone()) {
             if (microtime(true) >= $deadline) {
-                return [null, false];
+                $task->cancel();
+                throw new AsyncException(AsyncException::TIMEOUT, "deadline of {$ms} ms elapsed");
             }
-            // Run one tick manually
-            try {
-                $fiber = (new \ReflectionObject($loop))->getProperty('fibers');
-                $fiber->setAccessible(true);
-                $fibers = $fiber->getValue($loop);
-                foreach ($fibers as $f) {
-                    if (!$f->isStarted()) {
-                        $f->start();
-                    } elseif ($f->isSuspended()) {
-                        $f->resume();
-                    }
-                }
-            } catch (\Throwable) {
-                break;
-            }
-            usleep(1000);
+            $task->waiters[] = $self;
+            $loop->wakeAt($deadline, $self);
+            $loop->park();
         }
-
-        if ($loop->isCompleted($taskId)) {
-            return [$loop->getResult($taskId), true];
-        }
-        return [null, false];
+        return $task->await();
     }
 
     /**
-     * Simple synchronous timeout — runs fn and checks wall-clock time.
+     * Yields 0, 1, 2, ... every $ms milliseconds. Ticks are scheduled at fixed
+     * multiples of the period, so delays do not accumulate.
      *
-     * @return array{0: mixed, 1: bool}
+     * @return \Generator<int, int>
      */
-    public static function timeoutSync(int $ms, callable $fn): array
+    public static function interval(float $ms): \Generator
     {
-        $start = microtime(true);
-        $result = $fn();
-        $elapsed = (microtime(true) - $start) * 1000;
-        if ($elapsed > $ms) {
-            return [null, false];
+        if (!($ms > 0)) {
+            throw new \InvalidArgumentException('interval period must be greater than zero');
         }
-        return [$result, true];
+        $start = microtime(true);
+        for ($n = 0; ; $n++) {
+            $wait = ($start + ($n + 1) * $ms / 1000.0 - microtime(true)) * 1000.0;
+            self::sleep(max(0.0, $wait));
+            yield $n;
+        }
     }
 }

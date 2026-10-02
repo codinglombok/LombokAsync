@@ -4,108 +4,79 @@ declare(strict_types=1);
 
 namespace LombokAsync\Channel;
 
+use LombokAsync\AsyncException;
 use LombokAsync\Executor\EventLoop;
+use LombokAsync\Executor\Task;
 
 /**
- * Multi-producer, single-consumer channel using SplQueue.
+ * Multi-producer, single-consumer channel (SPEC section 3). Create one with
+ * {@see unbounded()} or {@see bounded()}; this object is the shared state.
+ *
+ * @template T
  */
-class MpscChannel
+final class MpscChannel
 {
-    private \SplQueue $queue;
-    private bool $closed = false;
+    /** @var \SplQueue<T> @internal */
+    public \SplQueue $queue;
+    /** @internal */
+    public int $senders = 0;
+    /** @internal */
+    public bool $rxClosed = false;
+    /** @var list<Task> @internal */
+    public array $recvWaiters = [];
+    /** @var list<Task> @internal */
+    public array $sendWaiters = [];
 
-    public function __construct()
+    private function __construct(public readonly ?int $capacity)
     {
         $this->queue = new \SplQueue();
     }
 
     /**
-     * Create a new mpsc channel and return [sender, receiver].
+     * Creates an unbounded channel.
      *
      * @return array{0: MpscSender, 1: MpscReceiver}
      */
+    public static function unbounded(): array
+    {
+        $c = new self(null);
+        return [new MpscSender($c), new MpscReceiver($c)];
+    }
+
+    /**
+     * Creates a channel that holds at most $capacity values.
+     *
+     * @return array{0: MpscSender, 1: MpscReceiver}
+     * @throws AsyncException INVALID_CAPACITY when $capacity < 1
+     */
+    public static function bounded(int $capacity): array
+    {
+        if ($capacity < 1) {
+            throw new AsyncException(AsyncException::INVALID_CAPACITY, 'capacity must be at least 1');
+        }
+        $c = new self($capacity);
+        return [new MpscSender($c), new MpscReceiver($c)];
+    }
+
+    /** @deprecated 0.1 name; use {@see unbounded()}. */
     public static function create(): array
     {
-        $channel = new self();
-        return [new MpscSender($channel), new MpscReceiver($channel)];
+        return self::unbounded();
     }
 
-    /** @internal */
-    public function send(mixed $value): void
+    /**
+     * @internal
+     * @param list<Task> $waiters
+     */
+    public static function wakeAll(array &$waiters): void
     {
-        if ($this->closed) {
-            throw new \RuntimeException('channel closed');
+        $list = $waiters;
+        $waiters = [];
+        if ($list !== []) {
+            $loop = EventLoop::current();
+            foreach ($list as $t) {
+                $loop->wake($t);
+            }
         }
-        $this->queue->enqueue($value);
-    }
-
-    /** @internal */
-    public function recv(): array
-    {
-        if (!$this->queue->isEmpty()) {
-            return [$this->queue->dequeue(), true];
-        }
-        if ($this->closed) {
-            return [null, false];
-        }
-        return [null, false]; // non-blocking: empty
-    }
-
-    /** @internal */
-    public function recvBlocking(): array
-    {
-        // Wait cooperatively
-        while ($this->queue->isEmpty() && !$this->closed) {
-            EventLoop::yield();
-        }
-        return $this->recv();
-    }
-
-    /** @internal */
-    public function close(): void
-    {
-        $this->closed = true;
-    }
-
-    public function isClosed(): bool
-    {
-        return $this->closed;
-    }
-
-    public function isEmpty(): bool
-    {
-        return $this->queue->isEmpty();
-    }
-}
-
-class MpscSender
-{
-    public function __construct(private MpscChannel $channel) {}
-
-    public function send(mixed $value): void
-    {
-        $this->channel->send($value);
-    }
-
-    public function close(): void
-    {
-        $this->channel->close();
-    }
-}
-
-class MpscReceiver
-{
-    public function __construct(private MpscChannel $channel) {}
-
-    /** Non-blocking receive. Returns [value, true] or [null, false]. */
-    public function recv(): array
-    {
-        return $this->channel->recv();
-    }
-
-    /** Blocking receive (cooperative). Returns [value, true] or [null, false]. */
-    public function recvBlocking(): array
-    {
-        return $this->channel->recvBlocking();
     }
 }

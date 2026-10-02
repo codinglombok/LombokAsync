@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lombokasync"
+version = "0.2.0"
+description = "Async helpers on asyncio: timeout, interval, bounded and unbounded mpsc channels, oneshot channels, join_all and select with a cross-language contract. Zero dependencies."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "codinglombok" }]
+requires-python = ">=3.9"
+keywords = ["async", "asyncio", "channel", "mpsc", "oneshot", "timeout", "select"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Framework :: AsyncIO",
+    "Typing :: Typed",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/codinglombok/LombokAsync"
+Issues = "https://github.com/codinglombok/LombokAsync/issues"
+
+[tool.setuptools]
+packages = ["lombokasync"]
+
+[tool.setuptools.package-data]
+lombokasync = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

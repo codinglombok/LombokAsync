@@ -7,12 +7,15 @@ Cargo.lock
 node_modules/
 /typescript/dist/
 /typescript/node_modules/
+/typescript/build/
 *.tsbuildinfo
 
 # Python
 __pycache__/
 *.pyc
 .pytest_cache/
+.coverage
+htmlcov/
 *.egg-info/
 dist/
 build/

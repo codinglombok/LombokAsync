@@ -1,8 +1,11 @@
 {
     "name": "codinglombok/lombokasync",
-    "description": "Lightweight async utilities — task spawning, timers, channels, combinators",
+    "description": "Cooperative async on PHP Fibers: event loop with timers, tasks, timeout, bounded and unbounded mpsc channels, oneshot channels, joinAll and select with a cross-language contract. Zero dependencies.",
     "type": "library",
     "license": "Apache-2.0",
+    "keywords": ["async", "fiber", "event-loop", "channel", "timeout", "lombok-ecosystem"],
+    "homepage": "https://github.com/codinglombok/LombokAsync",
+    "authors": [{ "name": "codinglombok" }],
     "require": {
         "php": ">=8.1"
     },
@@ -10,5 +13,8 @@
         "psr-4": {
             "LombokAsync\\": "src/"
         }
+    },
+    "scripts": {
+        "test": "php tests/run.php"
     }
 }
