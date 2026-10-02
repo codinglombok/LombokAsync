@@ -39,9 +39,16 @@ export function sleep(ms: number, signal?: AbortSignal): Promise<void> {
     });
 }
 
+// setImmediate (Node.js) gives a macrotask turn without timer clamping;
+// setTimeout(0) can take ~16 ms per call on Windows and in nested browser timers.
+const nextTurn: (cb: () => void) => void =
+    typeof (globalThis as { setImmediate?: unknown }).setImmediate === 'function'
+        ? cb => { (globalThis as unknown as { setImmediate: (cb: () => void) => void }).setImmediate(cb); }
+        : cb => { setTimeout(cb, 0); };
+
 /** Lets other queued callbacks run before continuing (one macrotask turn). */
 export function yieldNow(): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, 0));
+    return new Promise(resolve => nextTurn(resolve));
 }
 
 /**
