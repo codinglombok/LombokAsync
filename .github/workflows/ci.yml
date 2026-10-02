@@ -137,8 +137,11 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
           cache: false
-      - run: gofmt -l . | tee /dev/stderr | (! read)
-        shell: bash
+      - name: gofmt
+        if: runner.os == 'Linux'
+        run: |
+          out=$(gofmt -l .)
+          if [ -n "$out" ]; then echo "not gofmt-formatted:"; echo "$out"; exit 1; fi
       - run: go vet ./...
       - run: go test -race -coverprofile=cover.out ./...
       - name: Coverage >= 90%
