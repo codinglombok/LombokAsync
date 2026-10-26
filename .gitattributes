@@ -1,0 +1,12 @@
+# Dist composer hanya memuat port PHP + berkas root penting.
+# Packagist/composer mengemas seluruh repo pada tag; export-ignore menyetulkan
+# isi dist sehingga `composer install` tidak menarik port bahasa lain.
+/.github export-ignore
+/docs export-ignore
+/go export-ignore
+/python export-ignore
+/rust export-ignore
+/scripts export-ignore
+/typescript export-ignore
+/vectors export-ignore
+/.gitignore export-ignore

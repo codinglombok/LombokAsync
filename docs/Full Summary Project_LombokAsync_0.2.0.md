@@ -36,7 +36,7 @@ Posisi unik yang dibuktikan test: aturan channel dan combinator yang identik dan
 3. Go `Timeout` tidak dapat menghentikan goroutine (keterbatasan bahasa); gunakan `TimeoutCtx`.
 4. TS dan Go tidak membatalkan task yang kalah di `select`; hasilnya diabaikan.
 5. Channel Python dan PHP hanya aman di dalam satu event loop; channel TS hanya di satu realm.
-6. Paket PHP berada di subdirektori `php/`; job `packagist` otomatis melakukan subtree-split + ping Packagist pada tag `v*`, tetapi masih butuh sekali-setup: repositori split `codinglombok/lombokasync-php`, submit di Packagist, dan secrets `SPLIT_TOKEN`/`PACKAGIST_USERNAME`/`PACKAGIST_TOKEN` (T2).
+6. Paket PHP: `composer.json` ada di root repo (autoload `php/src/`); `.gitattributes` export-ignore menjaga dist composer tetap hanya port PHP. Job `packagist` otomatis ping Packagist pada tag `v*` — tinggal sekali-submit di Packagist + secrets `PACKAGIST_USERNAME`/`PACKAGIST_TOKEN` (T2).
 7. Mutan Rust yang dipertahankan: penanda `taken` di oneshot. Tes satu thread tidak dapat membedakannya karena `send` memakai habis pengirim, tetapi penanda itu menutup race lintas thread antara pelepasan lock di `send` dan drop pengirim.
 8. Waktu timer bergantung pada OS; SPEC hanya mengikat urutan dan outcome.
 
@@ -54,7 +54,7 @@ Posisi unik yang dibuktikan test: aturan channel dan combinator yang identik dan
 | U8 Ekosistem tanpa kopling | YA | 0 dependensi wajib |
 | U9 Internasional | SEBAGIAN | Lang_: tingkat E |
 | U10 Lisensi | YA | Apache-2.0 di root dan setiap port |
-| U11 Siap registri | SEBAGIAN | npm/crates/PyPI/Go + GitHub Release otomatis; Packagist tinggal sekali-setup split repo + secrets (T2) |
+| U11 Siap registri | SEBAGIAN | npm/crates/PyPI/Go + GitHub Release otomatis; Packagist tinggal sekali-submit + secrets (T2) |
 | U12 Dokumentasi | YA | 8 dokumen publik di-commit + 5 dokumen internal lokal (DOCS PACK kanonik) |
 | U13 Kerahasiaan & dokumen bersih | YA | `lombok-doctor.sh`: 0 emoji, `.gitignore` ADR-024 |
 

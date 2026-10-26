@@ -11,10 +11,10 @@
     },
     "autoload": {
         "psr-4": {
-            "LombokAsync\\": "src/"
+            "LombokAsync\\": "php/src/"
         }
     },
     "scripts": {
-        "test": "php tests/run.php"
+        "test": "php php/tests/run.php"
     }
 }

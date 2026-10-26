@@ -8,8 +8,8 @@
 | npm | `lombokasync` | belum terbit | job `npm`, `npm publish --provenance` dari `typescript/`, paket dual ESM (`dist/`) + CJS (`dist-cjs/`), rahasia `NPM_TOKEN` |
 | PyPI | `lombokasync` | belum terbit | job `pypi`, build `python/`, trusted publishing (OIDC) |
 | Go | `github.com/codinglombok/lombokasync/go` | tag otomatis saat rilis | job `go-module` di `release.yml` membuat dan mendorong tag `go/v<versi>` saat tag `v*` di-push |
-| GitHub Release | artefak semua port | otomatis | job `github-release` di `release.yml` melampirkan tarball npm (dual ESM+CJS), sdist + wheel PyPI, `.crate` crates.io, dan zip `php/` ke rilis tag `v*` |
-| Packagist | `codinglombok/lombokasync` | sekali-setup, lalu otomatis | job `packagist` di `release.yml`: uji smoke PHP, subtree-split `php/` ke `codinglombok/lombokasync-php` (branch `main` + tag `v*`), lalu ping API Packagist; rahasia `SPLIT_TOKEN`, `PACKAGIST_USERNAME`, `PACKAGIST_TOKEN`; sekali-setup: §3 |
+| GitHub Release | artefak semua port | otomatis | job `github-release` di `release.yml` melampirkan tarball npm (dual ESM+CJS), sdist + wheel PyPI, `.crate` crates.io, dan zip dist composer (root `composer.json` + `php/`, export-ignore aktif) ke rilis tag `v*` |
+| Packagist | `codinglombok/lombokasync` | sekali-submit, lalu otomatis | `composer.json` di root repo ini (autoload `php/src/`, dist dirampingkan via `.gitattributes` export-ignore); job `packagist` di `release.yml`: uji smoke PHP lalu ping API Packagist untuk repo ini pada tag `v*`; rahasia `PACKAGIST_USERNAME`, `PACKAGIST_TOKEN`; sekali-submit: §3 |
 
 ## 2. Alur rilis
 
@@ -24,12 +24,13 @@ git tag v0.2.0
 git push origin v0.2.0   # go/v0.2.0 didorong otomatis oleh job go-module
 ```
 
-## 3. Sekali-setup Packagist
+## 3. Sekali-submit Packagist
 
-1. Buat repositori kosong `codinglombok/lombokasync-php` (tanpa README agar push pertama tidak konflik).
-2. Buat PAT GitHub (klasik, scope `repo`) yang berhak mendorong ke repositori split; simpan sebagai secret `SPLIT_TOKEN`.
-3. Masuk ke Packagist → Submit → isikan `https://github.com/codinglombok/lombokasync-php` → verifikasi. Simpan username Packagist sebagai secret `PACKAGIST_USERNAME` dan API token sebagai secret `PACKAGIST_TOKEN`.
-4. Sejak itu setiap tag `v*` otomatis memperbarui repositori split dan memicu sinkronisasi Packagist. Selama secrets belum dipasang, job `packagist` dilewati dengan peringatan eksplisit — job rilis lain tetap berjalan.
+1. Masuk ke Packagist → Submit → isikan `https://github.com/codinglombok/LombokAsync` → verifikasi (Packagist memasang webhook auto-update ke repo ini).
+2. Simpan username Packagist sebagai secret `PACKAGIST_USERNAME` dan API token sebagai secret `PACKAGIST_TOKEN`.
+3. Sejak itu setiap tag `v*` memicu ping sinkronisasi oleh job `packagist` (dobel dengan webhook, aman). Selama secrets belum dipasang, job `packagist` dilewati dengan peringatan eksplisit — job rilis lain tetap berjalan.
+
+Catatan dist: composer mengemas seluruh repo pada tag; `.gitattributes` `export-ignore` menjaga dist tetap hanya port PHP + berkas root (`composer.json`, `php/`, `LICENSE`, `README.md`, `CHANGELOG.md`).
 
 ## 4. Pasca-rilis
 
@@ -42,6 +43,6 @@ curl -fsS https://repo.packagist.org/p2/codinglombok/lombokasync.json   # metada
 gh release view v0.2.0 --repo codinglombok/LombokAsync                  # artefak GitHub Release
 ```
 
-Rollback: `cargo yank --version 0.2.0`, `npm deprecate lombokasync@0.2.0 "gunakan 0.2.1"`, PyPI "yank" lewat antarmuka web. Tag Go tidak dihapus; terbitkan versi perbaikan. Packagist tidak mendukung yank (composer membaca versi dari tag repositori split) — terbitkan versi perbaikan.
+Rollback: `cargo yank --version 0.2.0`, `npm deprecate lombokasync@0.2.0 "gunakan 0.2.1"`, PyPI "yank" lewat antarmuka web. Tag Go tidak dihapus; terbitkan versi perbaikan. Packagist tidak mendukung yank (composer membaca versi dari tag repo ini) — terbitkan versi perbaikan.
 
 *Lisensi dokumen: Apache-2.0 · © codinglombok*

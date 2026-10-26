@@ -128,11 +128,11 @@ jobs:
         run: |
           cargo test
           cargo package
-      - name: Arsip PHP (zip dari php/)
+      - name: Arsip PHP (dist composer dari root, export-ignore aktif)
         run: |
           v="${GITHUB_REF_NAME#v}"
           git archive --format=zip --prefix="lombokasync-php-${v}/" \
-            -o "lombokasync-php-${v}.zip" "HEAD:php"
+            -o "lombokasync-php-${v}.zip" "HEAD"
       - name: Kumpulkan artefak
         run: |
           dir="${RUNNER_TEMP}/gh-assets"
@@ -165,28 +165,15 @@ jobs:
       - name: Cek prasyarat Packagist (secrets)
         id: prereq
         env:
-          SPLIT_TOKEN: ${{ secrets.SPLIT_TOKEN }}
           PACKAGIST_USERNAME: ${{ secrets.PACKAGIST_USERNAME }}
           PACKAGIST_TOKEN: ${{ secrets.PACKAGIST_TOKEN }}
         run: |
-          if [ -z "${SPLIT_TOKEN}" ] || [ -z "${PACKAGIST_USERNAME}" ] || [ -z "${PACKAGIST_TOKEN}" ]; then
+          if [ -z "${PACKAGIST_USERNAME}" ] || [ -z "${PACKAGIST_TOKEN}" ]; then
             echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::Packagist DILEWATI — pasang secret SPLIT_TOKEN, PACKAGIST_USERNAME, PACKAGIST_TOKEN (panduan: docs/How To Dist_LombokAsync_0.2.0.md)."
+            echo "::warning::Packagist DILEWATI — pasang secret PACKAGIST_USERNAME, PACKAGIST_TOKEN (panduan: docs/How To Dist_LombokAsync_0.2.0.md)."
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
-      - name: Subtree-split php/ ke codinglombok/lombokasync-php
-        if: steps.prereq.outputs.ready == 'true'
-        env:
-          SPLIT_TOKEN: ${{ secrets.SPLIT_TOKEN }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          split_sha="$(git subtree split -P php "refs/tags/${GITHUB_REF_NAME}")"
-          remote="https://x-access-token:${SPLIT_TOKEN}@github.com/codinglombok/lombokasync-php.git"
-          git push "$remote" --force \
-            "${split_sha}:refs/heads/main" \
-            "${split_sha}:refs/tags/${GITHUB_REF_NAME}"
       - name: Picu sinkronisasi Packagist
         if: steps.prereq.outputs.ready == 'true'
         env:
@@ -196,5 +183,5 @@ jobs:
           curl --fail --silent --show-error --request POST \
             "https://packagist.org/api/update-package" \
             --header "Content-Type: application/json" \
-            --data "{\"repositoryUrl\":\"https://github.com/codinglombok/lombokasync-php\",\"username\":\"${PACKAGIST_USERNAME}\",\"apiToken\":\"${PACKAGIST_TOKEN}\"}"
+            --data "{\"repositoryUrl\":\"https://github.com/codinglombok/LombokAsync\",\"username\":\"${PACKAGIST_USERNAME}\",\"apiToken\":\"${PACKAGIST_TOKEN}\"}"
           echo "Packagist diminta memperbarui codinglombok/lombokasync untuk ${GITHUB_REF_NAME}."

@@ -179,7 +179,8 @@ jobs:
         run: for f in $(find src tests -name '*.php'); do php -l "$f" > /dev/null || exit 1; done
       - name: PHPStan (level max)
         run: phpstan analyse --no-progress --memory-limit=1G
-      - name: Composer validate (strict)
+      - name: Composer validate (strict, root)
+        working-directory: .
         run: composer validate --strict
       - run: php -d pcov.enabled=1 -d pcov.directory=src tests/run.php --coverage=95
 
