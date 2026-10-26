@@ -8,14 +8,21 @@ from __future__ import annotations
 
 import asyncio
 from collections import deque
-from typing import Any, AsyncIterator, Deque, Generic, List, Optional, Tuple, TypeVar
+from collections.abc import AsyncIterator
+from typing import Any, Generic, TypeVar
 
-from lombokasync._errors import AlreadySent, ChannelClosed, ChannelEmpty, ChannelFull, InvalidCapacity
+from lombokasync._errors import (
+    AlreadySent,
+    ChannelClosed,
+    ChannelEmpty,
+    ChannelFull,
+    InvalidCapacity,
+)
 
 T = TypeVar("T")
 
 
-def _wake(waiters: List["asyncio.Future[None]"]) -> None:
+def _wake(waiters: list[asyncio.Future[None]]) -> None:
     for w in waiters:
         if not w.done():
             w.set_result(None)
@@ -25,13 +32,13 @@ def _wake(waiters: List["asyncio.Future[None]"]) -> None:
 class _Mpsc(Generic[T]):
     __slots__ = ("queue", "capacity", "senders", "rx_closed", "recv_waiters", "send_waiters")
 
-    def __init__(self, capacity: Optional[int]) -> None:
-        self.queue: Deque[T] = deque()
+    def __init__(self, capacity: int | None) -> None:
+        self.queue: deque[T] = deque()
         self.capacity = capacity
         self.senders = 0
         self.rx_closed = False
-        self.recv_waiters: List["asyncio.Future[None]"] = []
-        self.send_waiters: List["asyncio.Future[None]"] = []
+        self.recv_waiters: list[asyncio.Future[None]] = []
+        self.send_waiters: list[asyncio.Future[None]] = []
 
 
 class Sender(Generic[T]):
@@ -58,7 +65,10 @@ class Sender(Generic[T]):
         _wake(s.recv_waiters)
 
     async def send(self, value: T) -> None:
-        """Queues ``value``, waiting for space; raises :class:`ChannelClosed` if the receiver closes."""
+        """Queues ``value``, waiting for space.
+
+        Raises :class:`ChannelClosed` if the receiver closes while waiting.
+        """
         while True:
             try:
                 self.try_send(value)
@@ -68,7 +78,7 @@ class Sender(Generic[T]):
                 self._state.send_waiters.append(waiter)
                 await waiter
 
-    def clone(self) -> "Sender[T]":
+    def clone(self) -> Sender[T]:
         """Returns another sender for the same channel."""
         self._alive()
         return Sender(self._state)
@@ -142,13 +152,15 @@ class Receiver(Generic[T]):
                 return
 
 
-def mpsc_channel(capacity: Optional[int] = None) -> Tuple[Sender[Any], Receiver[Any]]:
+def mpsc_channel(capacity: int | None = None) -> tuple[Sender[Any], Receiver[Any]]:
     """Creates an mpsc channel: unbounded when ``capacity`` is None, otherwise
     holding at most ``capacity`` values.
 
     Raises :class:`InvalidCapacity` when ``capacity`` is not an integer of at least 1.
     """
-    if capacity is not None and (isinstance(capacity, bool) or not isinstance(capacity, int) or capacity < 1):
+    if capacity is not None and (
+        isinstance(capacity, bool) or not isinstance(capacity, int) or capacity < 1
+    ):
         raise InvalidCapacity("capacity must be an integer of at least 1")
     state: _Mpsc[Any] = _Mpsc(capacity)
     return Sender(state), Receiver(state)
@@ -158,13 +170,13 @@ class _Oneshot(Generic[T]):
     __slots__ = ("value", "has_value", "tx_used", "tx_dropped", "rx_closed", "taken", "waiters")
 
     def __init__(self) -> None:
-        self.value: Optional[T] = None
+        self.value: T | None = None
         self.has_value = False
         self.tx_used = False
         self.tx_dropped = False
         self.rx_closed = False
         self.taken = False
-        self.waiters: List["asyncio.Future[None]"] = []
+        self.waiters: list[asyncio.Future[None]] = []
 
 
 class OneshotSender(Generic[T]):
@@ -206,7 +218,10 @@ class OneshotReceiver(Generic[T]):
         self._state = state
 
     def try_recv(self) -> T:
-        """Takes the value without waiting; raises :class:`ChannelEmpty` or :class:`ChannelClosed`."""
+        """Takes the value without waiting.
+
+        Raises :class:`ChannelEmpty` or :class:`ChannelClosed`.
+        """
         s = self._state
         if s.has_value and not s.taken:
             s.taken = True
@@ -234,7 +249,7 @@ class OneshotReceiver(Generic[T]):
         return self.recv().__await__()
 
 
-def oneshot_channel() -> Tuple[OneshotSender[Any], OneshotReceiver[Any]]:
+def oneshot_channel() -> tuple[OneshotSender[Any], OneshotReceiver[Any]]:
     """Creates a oneshot channel."""
     state: _Oneshot[Any] = _Oneshot()
     return OneshotSender(state), OneshotReceiver(state)

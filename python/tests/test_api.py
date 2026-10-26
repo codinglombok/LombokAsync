@@ -36,7 +36,8 @@ def test_sleep_and_timeout():
     async def main():
         t0 = time.monotonic()
         await la.sleep(0.02)
-        assert time.monotonic() - t0 > 0  # asyncio may wake up to one clock tick early (about 15.6 ms on Windows)
+        # asyncio may wake up to one clock tick early (about 15.6 ms on Windows)
+        assert time.monotonic() - t0 > 0
         assert await la.timeout(1, asyncio.sleep(0, result=3)) == 3
         with pytest.raises(la.Timeout) as ei:
             await la.timeout(0.01, asyncio.sleep(5))
@@ -172,7 +173,9 @@ def test_combinators():
 
     async def main():
         assert await la.join(asyncio.sleep(0, 1), asyncio.sleep(0, "a")) == (1, "a")
-        assert await la.join3(asyncio.sleep(0, 1), asyncio.sleep(0, 2), asyncio.sleep(0, 3)) == (1, 2, 3)
+        assert await la.join3(
+            asyncio.sleep(0, 1), asyncio.sleep(0, 2), asyncio.sleep(0, 3)
+        ) == (1, 2, 3)
         assert await la.join_all([]) == []
         with pytest.raises(ValueError):
             await la.join_all([late_error(), early_error()])
@@ -186,7 +189,8 @@ def test_combinators():
 
 
 def test_error_hierarchy():
-    for cls, code in [(la.ChannelFull, "FULL"), (la.ChannelEmpty, "EMPTY"), (la.ChannelClosed, "CLOSED")]:
+    cases = [(la.ChannelFull, "FULL"), (la.ChannelEmpty, "EMPTY"), (la.ChannelClosed, "CLOSED")]
+    for cls, code in cases:
         e = cls("x")
         assert isinstance(e, la.AsyncError)
         assert e.code == code

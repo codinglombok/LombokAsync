@@ -14,7 +14,9 @@ use LombokAsync\Executor\EventLoop;
  */
 final class MpscReceiver implements \IteratorAggregate, \Countable
 {
-    /** @internal */
+    /** @internal
+     * @param MpscChannel<mixed> $c
+     */
     public function __construct(private readonly MpscChannel $c)
     {
     }

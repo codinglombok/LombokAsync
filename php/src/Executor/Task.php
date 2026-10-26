@@ -11,7 +11,9 @@ use LombokAsync\AsyncException;
  */
 final class Task
 {
-    /** @internal */
+    /** @internal
+     * @var \Fiber<void, void, void, mixed>
+     */
     public \Fiber $fiber;
     /** @internal true while the task sits in the ready queue */
     public bool $queued = false;

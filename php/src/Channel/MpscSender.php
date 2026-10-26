@@ -14,7 +14,9 @@ final class MpscSender
 {
     private bool $dropped = false;
 
-    /** @internal */
+    /** @internal
+     * @param MpscChannel<mixed> $c
+     */
     public function __construct(private readonly MpscChannel $c)
     {
         $c->senders++;

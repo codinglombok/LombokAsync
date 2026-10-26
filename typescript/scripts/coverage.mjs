@@ -4,7 +4,9 @@
 // Optional argument: the directory to run the tests in (default: current directory).
 import { spawnSync } from 'node:child_process'
 
-const MIN = { line: 90, branch: 90, funcs: 85 }
+// Lombok S4: statement/line >= 95, branch >= 90. Function coverage is held to
+// the same 90 floor as branch.
+const MIN = { line: 95, branch: 90, funcs: 90 }
 
 const run = spawnSync(process.execPath, ['--test', '--test-reporter=tap', '--experimental-test-coverage'], { encoding: 'utf8', cwd: process.argv[2] ?? '.' })
 process.stdout.write(run.stdout)

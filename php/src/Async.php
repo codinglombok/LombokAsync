@@ -49,7 +49,7 @@ final class Async
      * results in input order, or throws the error of the lowest-index task
      * that failed (not the earliest one).
      *
-     * @param list<callable> $fns
+     * @param array<array-key, callable> $fns
      * @return list<mixed>
      */
     public static function joinAll(array $fns): array
@@ -77,7 +77,7 @@ final class Async
      * to finish, or throws its error. Ties go to the lowest index. The other
      * tasks are cancelled.
      *
-     * @param list<callable> $fns
+     * @param array<array-key, callable> $fns
      * @return array{0: int, 1: mixed}
      */
     public static function select(array $fns): array

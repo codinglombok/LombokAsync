@@ -58,7 +58,11 @@ final class MpscChannel
         return [new MpscSender($c), new MpscReceiver($c)];
     }
 
-    /** @deprecated 0.1 name; use {@see unbounded()}. */
+    /**
+     * @deprecated 0.1 name; use {@see unbounded()}.
+     *
+     * @return array{0: MpscSender, 1: MpscReceiver}
+     */
     public static function create(): array
     {
         return self::unbounded();

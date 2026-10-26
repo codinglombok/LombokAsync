@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-from typing import AsyncIterator, Awaitable, TypeVar
+from collections.abc import AsyncIterator, Awaitable
+from typing import TypeVar
 
 from lombokasync._errors import Timeout
 

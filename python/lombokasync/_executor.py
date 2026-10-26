@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Coroutine, Generator, Generic, TypeVar
+from collections.abc import Coroutine, Generator
+from typing import Any, Generic, TypeVar
 
 T = TypeVar("T")
 
@@ -11,7 +12,7 @@ T = TypeVar("T")
 class JoinHandle(Generic[T]):
     """Handle to a task started with :func:`spawn`. Await it for the result."""
 
-    def __init__(self, task: "asyncio.Task[T]") -> None:
+    def __init__(self, task: asyncio.Task[T]) -> None:
         self._task = task
 
     def __await__(self) -> Generator[Any, None, T]:

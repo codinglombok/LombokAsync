@@ -2,15 +2,6 @@
 combinators on top of asyncio. Behaviour shared with the other ports is
 specified in docs/SPEC_LombokAsync_v0.2.0.md."""
 
-from lombokasync._errors import (
-    AlreadySent,
-    AsyncError,
-    ChannelClosed,
-    ChannelEmpty,
-    ChannelFull,
-    InvalidCapacity,
-    Timeout,
-)
 from lombokasync._channel import (
     OneshotReceiver,
     OneshotSender,
@@ -20,6 +11,15 @@ from lombokasync._channel import (
     oneshot_channel,
 )
 from lombokasync._combinators import Selected, join, join3, join_all, select
+from lombokasync._errors import (
+    AlreadySent,
+    AsyncError,
+    ChannelClosed,
+    ChannelEmpty,
+    ChannelFull,
+    InvalidCapacity,
+    Timeout,
+)
 from lombokasync._executor import JoinHandle, run, spawn, yield_now
 from lombokasync._timer import interval, sleep, timeout
 

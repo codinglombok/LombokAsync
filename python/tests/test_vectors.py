@@ -8,7 +8,9 @@ import pytest
 
 import lombokasync as la
 
-DOC = json.loads((pathlib.Path(__file__).resolve().parents[2] / "vectors" / "lombokasync-vectors-v1.json").read_text(encoding="utf-8"))
+_REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
+VECTOR_PATH = _REPO_ROOT / "vectors" / "lombokasync-vectors-v1.json"
+DOC = json.loads(VECTOR_PATH.read_text(encoding="utf-8"))
 DEADLINE = DOC["timeout_deadline_ms"] / 1000
 
 

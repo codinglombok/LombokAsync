@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Awaitable, Iterator, Sequence
 from dataclasses import dataclass
-from typing import Any, Awaitable, Generic, Iterator, List, Sequence, Tuple, TypeVar
+from typing import Any, Generic, TypeVar
 
 T = TypeVar("T")
 A = TypeVar("A")
@@ -12,26 +13,28 @@ B = TypeVar("B")
 C = TypeVar("C")
 
 
-async def join_all(awaitables: Sequence[Awaitable[T]]) -> List[T]:
+async def join_all(awaitables: Sequence[Awaitable[T]]) -> list[T]:
     """Waits for every awaitable, then returns the results in input order or
     raises the error of the lowest-index awaitable that failed (not the
     earliest one)."""
     results = await asyncio.gather(*awaitables, return_exceptions=True)
+    out: list[T] = []
     for r in results:
         if isinstance(r, BaseException):
             raise r
-    return list(results)
+        out.append(r)
+    return out
 
 
-async def join(a: Awaitable[A], b: Awaitable[B]) -> Tuple[A, B]:
+async def join(a: Awaitable[A], b: Awaitable[B]) -> tuple[A, B]:
     """:func:`join_all` for two awaitables."""
-    ra, rb = await join_all([a, b])  # type: ignore[list-item]
+    ra, rb = await join_all([a, b])
     return ra, rb  # type: ignore[return-value]
 
 
-async def join3(a: Awaitable[A], b: Awaitable[B], c: Awaitable[C]) -> Tuple[A, B, C]:
+async def join3(a: Awaitable[A], b: Awaitable[B], c: Awaitable[C]) -> tuple[A, B, C]:
     """:func:`join_all` for three awaitables."""
-    ra, rb, rc = await join_all([a, b, c])  # type: ignore[list-item]
+    ra, rb, rc = await join_all([a, b, c])
     return ra, rb, rc  # type: ignore[return-value]
 
 
@@ -47,7 +50,7 @@ class Selected(Generic[T]):
         return iter((self.index, self.value))
 
 
-async def select(awaitables: Sequence[Awaitable[T]]) -> "Selected[T]":
+async def select(awaitables: Sequence[Awaitable[T]]) -> Selected[T]:
     """Returns the first awaitable to finish as ``Selected(index, value)``, or
     raises its error. Ties go to the lowest index. The others are cancelled.
 
@@ -56,8 +59,8 @@ async def select(awaitables: Sequence[Awaitable[T]]) -> "Selected[T]":
     if not awaitables:
         raise ValueError("select needs at least one awaitable")
     tasks = [asyncio.ensure_future(a) for a in awaitables]
-    order: List[int] = []
-    first: "asyncio.Future[None]" = asyncio.get_running_loop().create_future()
+    order: list[int] = []
+    first: asyncio.Future[None] = asyncio.get_running_loop().create_future()
 
     def finished(i: int) -> Any:
         def cb(_: Any) -> None:
