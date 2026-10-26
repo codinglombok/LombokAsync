@@ -1,4 +1,4 @@
-# LombokAsync — Full Summary Project v0.2.0
+# LombokAsync — Full Summary Project 0.2.0
 
 | Item | Nilai |
 |---|---|
@@ -7,8 +7,8 @@
 | Referensi | SPEC + model keadaan Python di `vectors/build_vectors.py`; kelima port setara |
 | Port | Rust, TypeScript, Python, Go, PHP |
 | Vector | 141 kasus (mpsc 82, join_all 20, select 19, oneshot 13, timeout 7) · SHA-256 `dda4edb6...106376` |
-| Test | Rust 36 unit + 12 doctest + runner vector · TS 157 · Python 153 · Go unit + runner (dengan `-race`) · PHP 33 cek API + 142 cek vector |
-| Coverage | Rust 98,2% baris (cargo-llvm-cov) · TS 99,5% baris / 98,3% cabang · Python 99% (baris + cabang) · Go 99,6% pernyataan · PHP 97,5% baris (pcov) |
+| Test | Rust 36 unit + 12 doctest + runner vector · TS 157 · Python 153 · Go unit + runner (dengan `-race`) · PHP 33 cek API + 142 cek vector; lint: clippy, tsc strict, ruff + mypy strict, go vet, phpstan max, php -l |
+| Coverage (ambang 95/90, S4) | Rust 98,4% baris (cargo-llvm-cov) · TS 100% baris / 98,4% cabang / 98,3% fungsi · Python 99% (baris + cabang) · Go 99,2% pernyataan · PHP diukur CI (pcov, ambang 95) |
 | Fuzz | lombokfuzzer, fuzz diferensial channel TS vs model SPEC, 20.000 eksekusi lokal tanpa crash |
 | Uji mutasi | TS 12 mutan: 10 terbunuh, 2 ekuivalen · Rust 10 mutan: 9 terbunuh, 1 dipertahankan (lihat §2.7) |
 | Registry | crates.io, npm, PyPI `lombokasync`; Go `github.com/codinglombok/lombokasync/go`; Packagist `codinglombok/lombokasync` (semua belum terbit) |
@@ -50,12 +50,12 @@ Posisi unik yang dibuktikan test: aturan channel dan combinator yang identik dan
 | U4 Multi-bahasa | YA | 5 port, runner vector 141/141 di semua port |
 | U5 Rentang skala | SEBAGIAN | tanpa dependensi; tanpa multi-thread/I-O (Batasan 1-2) |
 | U6 Lengkap & unik | SEBAGIAN | tabel gap di atas |
-| U7 Aman & teruji | YA | SPEC §7; `forbid(unsafe_code)`; coverage ≥ 97% di semua port; fuzz; uji mutasi |
+| U7 Aman & teruji | YA | SPEC §7; `forbid(unsafe_code)`; coverage ≥ 98% baris di semua port terukur; ambang CI 95/90; fuzz; uji mutasi |
 | U8 Ekosistem tanpa kopling | YA | 0 dependensi wajib |
 | U9 Internasional | SEBAGIAN | Lang_: tingkat E |
 | U10 Lisensi | YA | Apache-2.0 di root dan setiap port |
 | U11 Siap registri | SEBAGIAN | npm/crates/PyPI/Go siap; Packagist butuh split repo |
-| U12 Dokumentasi | YA | 10 dokumen publik + 2 internal |
+| U12 Dokumentasi | YA | 8 dokumen publik di-commit + 5 dokumen internal lokal (DOCS PACK kanonik) |
 | U13 Kerahasiaan & dokumen bersih | YA | `lombok-doctor.sh`: 0 emoji, `.gitignore` ADR-024 |
 
 *Lisensi dokumen: Apache-2.0 · © codinglombok*

@@ -1,6 +1,6 @@
 """LombokAsync for Python: tasks, timers, mpsc and oneshot channels, and
 combinators on top of asyncio. Behaviour shared with the other ports is
-specified in docs/SPEC_LombokAsync_v0.2.0.md."""
+specified in docs/SPEC_LombokAsync_0.2.0.md."""
 
 from lombokasync._channel import (
     OneshotReceiver,

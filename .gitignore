@@ -10,6 +10,7 @@ node_modules/
 /typescript/node_modules/
 /typescript/build/
 *.tsbuildinfo
+*.tgz
 
 # Python
 __pycache__/
@@ -38,3 +39,14 @@ Thumbs.db
 /map
 /docs/*architecture*.*
 /docs/*masterplan*.*
+
+# ===== Lombok Ecosystem — dokumen internal (tidak di-commit) =====
+Map_*.md
+SPEC_*.md
+Stucture Repo_*.md
+TECH DEBT_*.md
+Architecture_*.md
+Masterplan_*.md
+# Pengecualian repo ini (keputusan sesi 0.2.0): SPEC adalah kontrak normatif
+# yang dituntut CI (lombok-doctor), sehingga tetap publik.
+!docs/SPEC_*.md

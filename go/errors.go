@@ -3,7 +3,7 @@
 // oneshot channels, and join/select combinators.
 //
 // Behaviour shared with the other LombokAsync ports (Rust, TypeScript,
-// Python, PHP) is specified in docs/SPEC_LombokAsync_v0.2.0.md and checked
+// Python, PHP) is specified in docs/SPEC_LombokAsync_0.2.0.md and checked
 // against the shared vectors.
 package lombokasync
 

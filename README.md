@@ -11,7 +11,7 @@ Part of the [Lombok Ecosystem](https://github.com/codinglombok).
 
 ## Mengapa library ini? (Why this library?)
 
-- **Same rules everywhere.** Rust, TypeScript, Python, Go, and PHP follow one written contract ([SPEC](docs/SPEC_LombokAsync_v0.2.0.md)): when a send is `full` or `closed`, when a receive is `empty`, which task wins a `select` tie (the lowest index), which error `join_all` reports (the lowest index, not the earliest). All five ports run the same 141 vector cases in CI.
+- **Same rules everywhere.** Rust, TypeScript, Python, Go, and PHP follow one written contract ([SPEC](docs/SPEC_LombokAsync_0.2.0.md)): when a send is `full` or `closed`, when a receive is `empty`, which task wins a `select` tie (the lowest index), which error `join_all` reports (the lowest index, not the earliest). All five ports run the same 141 vector cases in CI.
 - **Explicit channel states.** Non-blocking `try_send` / `try_recv` with named outcomes, bounded capacity for backpressure, sender cloning, and receiver `close()` that still drains queued values.
 - **A real small executor in Rust.** Ready queue, timer heap, thread parking instead of busy-polling, wakers usable from other threads, and `#![forbid(unsafe_code)]`.
 - **Idiomatic per language.** Rust `Result`, TypeScript status objects and `AsyncError`, Python exceptions on `asyncio`, Go sentinel errors with `context` variants, PHP Fibers with a timer-driven event loop.
@@ -21,12 +21,12 @@ Part of the [Lombok Ecosystem](https://github.com/codinglombok).
 | Language | Package | Status |
 |---|---|---|
 | Rust | `lombokasync` (crates.io) | not yet published |
-| TypeScript / JavaScript | `lombokasync` (npm) | not yet published |
+| TypeScript / JavaScript | `lombokasync` (npm) | not yet published; dual ESM + CJS build |
 | Python | `lombokasync` (PyPI) | not yet published |
 | Go | `github.com/codinglombok/lombokasync/go` | tag `go/v0.2.0` on release |
 | PHP | `codinglombok/lombokasync` (Packagist) | not yet published |
 
-Until then, use the source in this repository. See [docs/how_to_dist_LombokAsync_v0.2.0.md](docs/how_to_dist_LombokAsync_v0.2.0.md).
+Until then, use the source in this repository. See [docs/How To Dist_LombokAsync_0.2.0.md](docs/How%20To%20Dist_LombokAsync_0.2.0.md).
 
 ## Quick start
 
@@ -131,7 +131,7 @@ $sum = Async::run(function (): int {
 
 ## Known limitations
 
-No I/O reactor (sockets, files), no broadcast or watch channels, no thread pool; the Rust executor is single-threaded. Go `Timeout` cannot stop the goroutine it started (use `TimeoutCtx`). PHP needs a split repository or a root `composer.json` before it can be published to Packagist. Full list: [docs/full_summary_project_LombokAsync_v0.2.0.md](docs/full_summary_project_LombokAsync_v0.2.0.md#2-batasan-yang-diketahui).
+No I/O reactor (sockets, files), no broadcast or watch channels, no thread pool; the Rust executor is single-threaded. Go `Timeout` cannot stop the goroutine it started (use `TimeoutCtx`). PHP needs a split repository or a root `composer.json` before it can be published to Packagist. Full list: [docs/Full Summary Project_LombokAsync_0.2.0.md](docs/Full%20Summary%20Project_LombokAsync_0.2.0.md#2-batasan-yang-diketahui).
 
 ## Upgrading from 0.1.0
 
@@ -141,12 +141,14 @@ No I/O reactor (sockets, files), no broadcast or watch channels, no thread pool;
 
 ```bash
 cd rust && cargo test && cargo clippy --all-targets -- -D warnings
-cd typescript && npm ci && npm run lint && npm run coverage
-cd python && python -m pytest
+cd typescript && npm ci && npm run lint && npm run coverage && npm run build && npm run build:cjs && npm run smoke
+cd python && python -m pytest && ruff check . && mypy
 cd go && go test -race ./...
-cd php && php tests/run.php
+cd php && php tests/run.php && phpstan analyse --no-progress --memory-limit=1G && composer validate --strict
 bash scripts/lombok-doctor.sh LombokAsync
 ```
+
+Coverage gates follow the ecosystem standard: 95% lines/statements and 90% branches in every port (Rust line-based via cargo-llvm-cov, TS 95/90/90, Python branch mode, Go statements, PHP pcov).
 
 ## License
 

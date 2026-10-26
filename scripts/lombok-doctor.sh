@@ -1,12 +1,18 @@
 #!/usr/bin/env bash
-# lombok doctor (v3.6) - pemeriksaan mesin untuk standar Lombok Ecosystem.
+# lombok doctor (v3.6, adaptasi LombokAsync) - pemeriksaan mesin untuk standar Lombok Ecosystem.
+#
+# Adaptasi repo ini (sesi 0.2.0): penamaan dokumen mengikuti DOCS PACK kanonik
+#   docs/[NamaDok]_LombokAsync_0.2.0.md  (tanpa prefiks "v")
+# Dokumen publik (8) di-commit; dokumen internal (Map_, Stucture Repo_, TECH DEBT_,
+# Architecture_, Masterplan_) lokal saja sesuai blok [GITIGNORE] ekosistem;
+# SPEC_*.md tetap publik lewat pengecualian '!docs/SPEC_*.md' karena CI menuntutnya.
 #
 # Mencakup (PRINSIP_UNIVERSAL v3.6, MASTERPLAN_UTAMA v3.6 §5, RILIS_DISTRIBUSI §5):
-#   docs     10 dokumen publik ada, versi nama berkas = versi manifest, SPEC normatif,
+#   docs     8 dokumen publik ada, versi nama berkas = versi manifest, SPEC normatif,
 #            hash vector cocok, jumlah kasus vector >= 100, runner vector per port
 #   claims   larangan klaim kepemilikan aplikasi/framework (ADR-019, U1)
 #   style    0 emoji di *.md terlacak (ADR-025, GP-13)
-#   ignore   .gitignore memuat 3 baris ADR-024, dokumen internal tidak terlacak (GP-13)
+#   ignore   .gitignore memuat baris ADR-024 + blok ekosistem, dokumen internal tidak terlacak (GP-13)
 #   privacy  0 istilah klien (ADR-023, GP-12) - daftar dari $LOMBOK_PRIVACY_TERMS
 #            atau ~/.lombok/client-terms.txt; dilewati bila daftar tidak tersedia
 #   meta     LICENSE, SPDX manifest, README "Mengapa library ini", CHANGELOG terbaru = versi,
@@ -60,19 +66,20 @@ for c in composer.json php/composer.json; do
 done
 
 # ---------------------------------------------------------------- docs
-PUBLIC="changelog map structure_repo full_summary_project guide_how_to_use how_to_dist development_ide API Lang SPEC"
+PUBLIC=(API Changelog Development_idea "Full Summary Project" "Guide How to Use" "How To Dist" Language SPEC)
 count=0
-for d in $PUBLIC; do
-  f="docs/${d}_${REPO}_v${VER}.md"
+for d in "${PUBLIC[@]}"; do
+  f="docs/${d}_${REPO}_${VER}.md"
   if [ -f "$f" ]; then count=$((count+1)); else err "dokumen publik hilang: $f"; fi
 done
-echo "dokumen publik: $count/10"
+echo "dokumen publik: $count/${#PUBLIC[@]}"
 if [ "$INTERNAL" -eq 1 ]; then
-  for d in masterplan architecture; do
-    f="docs/${d}_${REPO}_v${VER}.md"
+  INTERNAL_DOCS=(Map "Stucture Repo" "TECH DEBT" Architecture Masterplan)
+  for d in "${INTERNAL_DOCS[@]}"; do
+    f="docs/${d}_${REPO}_${VER}.md"
     [ -f "$f" ] || err "dokumen internal hilang (lokal): $f"
   done
-  MP="docs/masterplan_${REPO}_v${VER}.md"
+  MP="docs/Masterplan_${REPO}_${VER}.md"
   if [ -f "$MP" ]; then
     grep -q '^## 2\. Prinsip Universal' "$MP" || err "masterplan tanpa bagian '## 2. Prinsip Universal'"
     n="$(grep -c -E '^\| U(1[0-3]|[1-9]) \|' "$MP")"
@@ -80,7 +87,7 @@ if [ "$INTERNAL" -eq 1 ]; then
   fi
 fi
 
-SPEC="docs/SPEC_${REPO}_v${VER}.md"
+SPEC="docs/SPEC_${REPO}_${VER}.md"
 S="This document is the normative cross-language contract. Every language port MUST produce byte-identical output for all specified inputs. Deviations from this specification are bugs."
 VEC="${LOMBOK_VECTORS:-vectors/${PKG}-vectors-v1.json}"
 if [ -f "$SPEC" ]; then
@@ -109,7 +116,7 @@ if [ -f php/composer.json ]; then has_runner "php/tests/*ectors*" || err "runner
 APPS='RAG[A-Za-z]*|Clarion|DocFlow|PDF|AgenticAuto|Miner|DNSProxy|Proxy'
 for f in README.md docs/*.md; do
   [ -f "$f" ] || continue
-  case "$f" in docs/map_*) continue ;; esac
+  case "$f" in docs/Map_*|docs/map_*) continue ;; esac
   hits="$(grep -n -i -E "(peran di rag|role in rag|purpose in rag|library *#[0-9]+|(part of|bagian dari|modul dari|komponen dari)[^.]{0,20}Lombok(${APPS})\\b|khusus (untuk )?(rag|Lombok[A-Za-z]+))" "$f" \
     | grep -v -i -E "bukan|tidak|not |never|jangan|salah|diperiksa|ditolak|dilarang" || true)"
   [ -z "$hits" ] || err "klaim kepemilikan di $f (ADR-019): $(echo "$hits" | head -1 | cut -c1-120)"
@@ -120,11 +127,11 @@ EMOJI_RE='[\x{1F000}-\x{1FAFF}\x{2600}-\x{27BF}\x{2B05}-\x{2B55}\x{FE0F}\x{1F1E6
 emoji="$(git ls-files -z -- '*.md' 2>/dev/null | xargs -0 -r perl -CSD -ne "print \"\$ARGV:\$.\\n\" if /$EMOJI_RE/; close ARGV if eof" 2>/dev/null)"
 if [ -n "$emoji" ]; then err "emoji di *.md: $(echo "$emoji" | head -5 | tr '\n' ' ')"; else ok "0 emoji di *.md"; fi
 
-# ---------------------------------------------------------------- ignore (ADR-024)
-for rule in '/map' '/docs/*architecture*.*' '/docs/*masterplan*.*'; do
-  grep -qxF "$rule" .gitignore 2>/dev/null || err ".gitignore tanpa baris '$rule' (ADR-024)"
+# ---------------------------------------------------------------- ignore (ADR-024 + blok ekosistem)
+for rule in '/map' '/docs/*architecture*.*' '/docs/*masterplan*.*' 'Map_*.md' 'Stucture Repo_*.md' 'TECH DEBT_*.md' 'Architecture_*.md' 'Masterplan_*.md' '!docs/SPEC_*.md'; do
+  grep -qxF "$rule" .gitignore 2>/dev/null || err ".gitignore tanpa baris '$rule' (ADR-024/blok ekosistem)"
 done
-tracked="$(git ls-files 2>/dev/null | grep -E '^map/|^docs/[^/]*architecture[^/]*\.|^docs/[^/]*masterplan[^/]*\.' || true)"
+tracked="$(git ls-files 2>/dev/null | grep -E '^map/|^docs/[^/]*([Aa]rchitecture|[Mm]asterplan)[^/]*\.|^docs/(Map_|Stucture Repo_|TECH DEBT_|Architecture_|Masterplan_)' || true)"
 [ -z "$tracked" ] || err "dokumen internal terlacak git: $(echo "$tracked" | tr '\n' ' ')"
 
 # ---------------------------------------------------------------- privacy (ADR-023)

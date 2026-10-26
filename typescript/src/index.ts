@@ -1,7 +1,7 @@
 /**
  * LombokAsync for TypeScript/JavaScript: timers, mpsc and oneshot channels,
  * and combinators on top of native promises. Behaviour shared with the other
- * ports is specified in docs/SPEC_LombokAsync_v0.2.0.md.
+ * ports is specified in docs/SPEC_LombokAsync_0.2.0.md.
  */
 
 /** Error codes shared by every LombokAsync port (SPEC section 2). */

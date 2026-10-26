@@ -1,4 +1,4 @@
-# LombokAsync — SPEC v0.2.0
+# LombokAsync — SPEC 0.2.0
 
 This document is the normative cross-language contract. Every language port MUST produce byte-identical output for all specified inputs. Deviations from this specification are bugs.
 

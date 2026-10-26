@@ -1,16 +1,16 @@
-# LombokAsync — Guide How to Use v0.2.0
+# LombokAsync — Guide How to Use 0.2.0
 
 ## 1. Pemasangan
 
 | Bahasa | Perintah | Syarat |
 |---|---|---|
 | Rust | `cargo add lombokasync` | Rust 1.70+ |
-| TypeScript/JS | `npm install lombokasync` | Node.js 20+, peramban modern, Deno, Bun |
+| TypeScript/JS | `npm install lombokasync` | Node.js 20+, peramban modern, Deno, Bun; ESM (`import`) dan CJS (`require`) |
 | Python | `pip install lombokasync` | Python 3.9+ |
 | Go | `go get github.com/codinglombok/lombokasync/go` | Go 1.22+ |
 | PHP | `composer require codinglombok/lombokasync` | PHP 8.1+ |
 
-Selama belum terbit, pakai sumber di repositori ini (lihat `how_to_dist_`).
+Selama belum terbit, pakai sumber di repositori ini (lihat `How To Dist_`).
 
 ## 2. Channel mpsc
 
@@ -78,6 +78,6 @@ $v = Async::timeout(500, fn () => slow());   // AsyncException TIMEOUT
 
 ## 7. Batasan
 
-Lihat `full_summary_project_` §2: tanpa I/O reaktor, eksekutor Rust satu thread, Go `Timeout` tidak menghentikan goroutine.
+Lihat `Full Summary Project_` §2: tanpa I/O reaktor, eksekutor Rust satu thread, Go `Timeout` tidak menghentikan goroutine.
 
 *Lisensi dokumen: Apache-2.0 · © codinglombok*

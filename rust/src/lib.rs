@@ -10,7 +10,7 @@
 //!   [`select_all`] compose futures.
 //!
 //! Behaviour that every LombokAsync port shares is specified in
-//! `docs/SPEC_LombokAsync_v0.2.0.md` and checked against the shared vectors.
+//! `docs/SPEC_LombokAsync_0.2.0.md` and checked against the shared vectors.
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 

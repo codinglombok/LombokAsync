@@ -1,4 +1,4 @@
-# LombokAsync — API v0.2.0
+# LombokAsync — API 0.2.0
 
 Perilaku normatif ada di SPEC. Dokumen ini memetakan konsep SPEC ke nama di setiap port.
 
@@ -35,6 +35,8 @@ Perilaku normatif ada di SPEC. Dokumen ini memetakan konsep SPEC ke nama di seti
 | kompatibilitas | modul `sync` mengekspor ulang `join`, `join3`, `join_all`, `select`, `Either` |
 
 ## 3. TypeScript (`lombokasync`)
+
+Diterbitkan sebagai paket dual: ESM (`dist/`, `import`) dan CJS (`dist-cjs/`, `require`); Node.js 20+.
 
 | Item | Tanda tangan |
 |---|---|

@@ -11,7 +11,7 @@ After editing, run:
     python3 vectors/build_vectors.py
     sha256sum vectors/lombokasync-vectors-v1.json > vectors/SHA256SUMS
 
-and update the hash in docs/SPEC_LombokAsync_v<version>.md.
+and update the hash in docs/SPEC_LombokAsync_<version>.md.
 """
 import json
 import pathlib
