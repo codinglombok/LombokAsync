@@ -91,6 +91,9 @@ jobs:
       - run: npm run lint
       - run: npm run coverage
       - run: npm run build
+      - run: npm run build:cjs
+      - name: Smoke-test ESM and CJS entry points
+        run: npm run smoke
       - name: Fuzz (short)
         if: matrix.os == 'ubuntu-latest' && matrix.node == 24
         env:

@@ -6,6 +6,7 @@ Cargo.lock
 # Node / TypeScript
 node_modules/
 /typescript/dist/
+/typescript/dist-cjs/
 /typescript/node_modules/
 /typescript/build/
 *.tsbuildinfo

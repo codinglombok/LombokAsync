@@ -24,29 +24,32 @@
     "directory": "typescript"
   },
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "./dist-cjs/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+      "import": "./dist/index.js",
+      "require": "./dist-cjs/index.js"
     },
     "./package.json": "./package.json"
   },
   "files": [
-    "dist/index.js",
-    "dist/index.d.ts",
+    "dist",
+    "dist-cjs",
     "README.md",
     "LICENSE"
   ],
   "sideEffects": false,
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "build:cjs": "tsc -p tsconfig.cjs.json && node scripts/write-cjs-package.mjs",
     "build:test": "tsc -p tsconfig.test.json",
+    "smoke": "node scripts/smoke.mjs",
     "test": "npm run build:test && cd build && node --test",
     "coverage": "npm run build:test && node scripts/coverage.mjs build",
     "lint": "tsc -p tsconfig.test.json --noEmit",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "npm run build && npm run build:cjs",
     "fuzz": "npm run build:test && node build/tests/fuzz/channels.fuzz.js"
   },
   "engines": {
