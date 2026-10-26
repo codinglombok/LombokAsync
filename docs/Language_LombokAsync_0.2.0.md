@@ -8,7 +8,7 @@
 | TypeScript | Jalur publikasi npm (target utama distribusi) | `typescript/` | `npm test` (tests/vectors.test.ts) | Dual ESM (`dist/`) + CJS (`dist-cjs/`); Node 20+; ordering mengikat event order, bukan timing |
 | Python | Port asyncio idiomatik; jalur PyPI | `python/` | `pytest` (tests/test_vectors.py) | Python 3.9+; ruff + mypy strict wajib CLEAN |
 | Go | Port goroutine; modul terbit via tag `go/v*` | `go/` | `go test -race` (vectors_test.go) | `Select` atas channel; varian `context` untuk pembatalan |
-| PHP | Port Fiber; jalur Packagist (menunggu repositori split) | `php/` | `php tests/run.php` (tests/vectors.php) | PHP 8.1+ Fiber; phpstan level max; kode `CANCELLED` khusus port |
+| PHP | Port Fiber; jalur Packagist (job `packagist`: subtree-split + ping; sekali-setup repo split) | `php/` | `php tests/run.php` (tests/vectors.php) | PHP 8.1+ Fiber; phpstan level max; kode `CANCELLED` khusus port |
 
 Kelima port menjalankan vector yang sama (141 kasus) dan wajib menghasilkan JSON kanonik yang identik (SPEC §0.2, §2).
 

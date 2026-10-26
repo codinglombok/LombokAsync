@@ -49,8 +49,8 @@ Dokumen ini menggabungkan lingkungan pengembangan (IDE) dan backlog ide (P0–P3
 | P0 (sesi ini) | Threshold coverage 95/90 semua port (S4) | Gate CI mematok angka; bukti lokal ≥ 98,4 di port terukur |
 | P0 (sesi ini) | ruff + mypy strict, phpstan max, composer validate strict | Kelima alat CLEAN di lokal dan CI |
 | P0 (sesi ini) | DOCS PACK 13 dokumen kanonik + blok [GITIGNORE] ekosistem | doctor 8/8 publik + `--internal` lulus; dokumen internal tak terlacak |
-| P1 | Rilis pertama ke registry (push tag `v0.3.0`) | npm/crates/PyPI terisi; tag `go/v0.3.0` terdorong otomatis oleh release.yml |
-| P1 | Packagist: repositori split atau `composer.json` root | `composer require codinglombok/lombokasync` jalan | 
+| P1 | Rilis pertama ke registry (push tag `v0.2.0`) | npm/crates/PyPI + GitHub Release terisi; tag `go/v<versi>` terdorong otomatis oleh release.yml |
+| P1 | Packagist: sekali-setup repo split + submit + secrets (job otomatis sudah ada di `release.yml`) | `composer require codinglombok/lombokasync` jalan | 
 | P1 | Hapus shim kompat: `rust::sync` dan `MpscChannel::create()` | CHANGELOG 0.3.0 mencatat breaking; doctor tetap hijau |
 | P2 | Channel broadcast dan watch (SPEC §3 bagian baru) | Vector v2 + runner 5 port lulus; SPEC v0.3.x |
 | P2 | Token pembatalan yang sama di semua port (`cancel` seragam) | SPEC bagian baru; runner vector memuat kasus cancel |

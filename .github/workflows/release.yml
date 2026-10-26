@@ -95,3 +95,106 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag "go/v${v}"
           git push origin "go/v${v}"
+
+  github-release:
+    needs: check-version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - name: Paket TypeScript (tarball dual ESM+CJS)
+        working-directory: typescript
+        run: |
+          npm ci
+          npm test
+          npm run build
+          npm run build:cjs
+          npm run smoke
+          npm pack
+      - name: Paket Python (sdist + wheel)
+        working-directory: python
+        run: |
+          python -m pip install build
+          python -m build
+      - name: Paket Rust (.crate)
+        working-directory: rust
+        run: |
+          cargo test
+          cargo package
+      - name: Arsip PHP (zip dari php/)
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          git archive --format=zip --prefix="lombokasync-php-${v}/" \
+            -o "lombokasync-php-${v}.zip" "HEAD:php"
+      - name: Kumpulkan artefak
+        run: |
+          dir="${RUNNER_TEMP}/gh-assets"
+          mkdir -p "$dir"
+          cp typescript/lombokasync-*.tgz "$dir"
+          cp python/dist/* "$dir"
+          cp rust/target/package/lombokasync-*.crate "$dir"
+          cp lombokasync-php-*.zip "$dir"
+          ls -l "$dir"
+      - name: Buat GitHub Release dan unggah artefak
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
+            gh release create "$GITHUB_REF_NAME" \
+              --title "LombokAsync ${GITHUB_REF_NAME}" \
+              --generate-notes
+          gh release upload "$GITHUB_REF_NAME" "${RUNNER_TEMP}"/gh-assets/* --clobber
+
+  packagist:
+    needs: check-version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - name: Uji smoke port PHP
+        working-directory: php
+        run: php tests/run.php
+      - name: Cek prasyarat Packagist (secrets)
+        id: prereq
+        env:
+          SPLIT_TOKEN: ${{ secrets.SPLIT_TOKEN }}
+          PACKAGIST_USERNAME: ${{ secrets.PACKAGIST_USERNAME }}
+          PACKAGIST_TOKEN: ${{ secrets.PACKAGIST_TOKEN }}
+        run: |
+          if [ -z "${SPLIT_TOKEN}" ] || [ -z "${PACKAGIST_USERNAME}" ] || [ -z "${PACKAGIST_TOKEN}" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Packagist DILEWATI — pasang secret SPLIT_TOKEN, PACKAGIST_USERNAME, PACKAGIST_TOKEN (panduan: docs/How To Dist_LombokAsync_0.2.0.md)."
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Subtree-split php/ ke codinglombok/lombokasync-php
+        if: steps.prereq.outputs.ready == 'true'
+        env:
+          SPLIT_TOKEN: ${{ secrets.SPLIT_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          split_sha="$(git subtree split -P php "refs/tags/${GITHUB_REF_NAME}")"
+          remote="https://x-access-token:${SPLIT_TOKEN}@github.com/codinglombok/lombokasync-php.git"
+          git push "$remote" --force \
+            "${split_sha}:refs/heads/main" \
+            "${split_sha}:refs/tags/${GITHUB_REF_NAME}"
+      - name: Picu sinkronisasi Packagist
+        if: steps.prereq.outputs.ready == 'true'
+        env:
+          PACKAGIST_USERNAME: ${{ secrets.PACKAGIST_USERNAME }}
+          PACKAGIST_TOKEN: ${{ secrets.PACKAGIST_TOKEN }}
+        run: |
+          curl --fail --silent --show-error --request POST \
+            "https://packagist.org/api/update-package" \
+            --header "Content-Type: application/json" \
+            --data "{\"repositoryUrl\":\"https://github.com/codinglombok/lombokasync-php\",\"username\":\"${PACKAGIST_USERNAME}\",\"apiToken\":\"${PACKAGIST_TOKEN}\"}"
+          echo "Packagist diminta memperbarui codinglombok/lombokasync untuk ${GITHUB_REF_NAME}."

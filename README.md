@@ -24,7 +24,9 @@ Part of the [Lombok Ecosystem](https://github.com/codinglombok).
 | TypeScript / JavaScript | `lombokasync` (npm) | not yet published; dual ESM + CJS build |
 | Python | `lombokasync` (PyPI) | not yet published |
 | Go | `github.com/codinglombok/lombokasync/go` | tag `go/v0.2.0` on release |
-| PHP | `codinglombok/lombokasync` (Packagist) | not yet published |
+| PHP | `codinglombok/lombokasync` (Packagist) | not yet published; `release.yml` syncs the `php/` split repo on `v*` tags (one-time setup) |
+
+On a `v*` tag, `release.yml` also creates a GitHub Release containing every port's package artifact (npm tarball, Python sdist + wheel, Rust `.crate`, PHP zip) and syncs the PHP split repository to Packagist.
 
 Until then, use the source in this repository. See [docs/How To Dist_LombokAsync_0.2.0.md](docs/How%20To%20Dist_LombokAsync_0.2.0.md).
 
@@ -131,7 +133,7 @@ $sum = Async::run(function (): int {
 
 ## Known limitations
 
-No I/O reactor (sockets, files), no broadcast or watch channels, no thread pool; the Rust executor is single-threaded. Go `Timeout` cannot stop the goroutine it started (use `TimeoutCtx`). PHP needs a split repository or a root `composer.json` before it can be published to Packagist. Full list: [docs/Full Summary Project_LombokAsync_0.2.0.md](docs/Full%20Summary%20Project_LombokAsync_0.2.0.md#2-batasan-yang-diketahui).
+No I/O reactor (sockets, files), no broadcast or watch channels, no thread pool; the Rust executor is single-threaded. Go `Timeout` cannot stop the goroutine it started (use `TimeoutCtx`). Packagist publishing for PHP is automated in `release.yml` (subtree-split to `codinglombok/lombokasync-php`, then a Packagist API ping) but still needs a one-time setup: the split repository, its submission on Packagist, and the `SPLIT_TOKEN` / `PACKAGIST_USERNAME` / `PACKAGIST_TOKEN` secrets. Full list: [docs/Full Summary Project_LombokAsync_0.2.0.md](docs/Full%20Summary%20Project_LombokAsync_0.2.0.md#2-batasan-yang-diketahui).
 
 ## Upgrading from 0.1.0
 

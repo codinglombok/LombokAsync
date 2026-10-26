@@ -31,6 +31,8 @@ claims that match the code. Every port changes its API (0.x release).
 - Python: `[tool.ruff]` (E/F/W/I/B/UP, line-length 100) and `[tool.mypy] strict` configuration in `pyproject.toml`; both run in CI.
 - Ecosystem `.gitignore` block for internal documents (`Map_*.md`, `Stucture Repo_*.md`, `TECH DEBT_*.md`, `Architecture_*.md`, `Masterplan_*.md`) with an explicit exception keeping `docs/SPEC_*.md` public, since CI and downstream users require the normative contract.
 - `go/LICENSE` (Apache-2.0) so every port directory carries the license.
+- `github-release` job in `release.yml`: builds and attaches every port's package artifact to the GitHub Release of the pushed `v*` tag — the npm tarball (dual ESM + CJS), the Python sdist + wheel, the Rust `.crate`, and a zip archive of `php/`.
+- `packagist` job in `release.yml`: runs the PHP smoke test, then subtree-splits `php/` into the split repository `codinglombok/lombokasync-php` (branch `main` + tag `v*`) and pings the Packagist update API. Gated on the `SPLIT_TOKEN`, `PACKAGIST_USERNAME` and `PACKAGIST_TOKEN` secrets; skipped with an explicit warning until the one-time setup is done.
 
 ### Changed
 - Rust executor rewritten: ready queue, timer heap and thread parking instead of polling every task and sleeping 1 ms; wakers work from other threads; no `unsafe` code (`#![forbid(unsafe_code)]`).
